@@ -51,7 +51,7 @@ extrapolating back based on data (e.g. deflators) from neighbouring countries.
 
 ## Caribbean Netherlands
 
-![NL_Caribbean.png](../../Images/SI/GDP_data/NL_Caribbean.png)
+![NL_Caribbean.png](../../Images/Github/NL_Caribbean.png)
 
 UN DESA supplies data for the Former Antilles in nominal terms from 1970–2009. These broadly correspond with the WB 
 figures for Curacao, the largest of the islands (Aruba became an independent constituent in 1986). 
@@ -60,14 +60,14 @@ islands from 2012 on, also in nominal terms. We convert and fill the gaps using 
 neighbouring Aruba (which uses base year 2013, and is also a constituent part of the Netherlands).
 
 ## French overseas territories
-![FR_overseas.png](../../Images/SI/GDP_data/FR_overseas.png)
+![FR_overseas.png](../../Images/Github/FR_overseas.png)
 
 Data from [Statista](https://www.statista.com/statistics/1075036/gdp-french-overseas-regions/). 
 We extrapolate back to 1989 and forward to 2023 using average growth rates.
 
 ## Small Pacific Islands
 
-![PacificIslands.png](../../Images/SI/GDP_data/Pacific_Islands.png)
+![PacificIslands.png](../../Images/Github/Pacific_Islands.png)
 
 Source: [Pacific Community](https://sdd.spc.int/dataset/df_national_accounts). This gives nominal GDP from 2025–2023, 
 as well as country-specific inflation rates until 2022, which we use as a proxy for the GDP deflator. Additionally, we 
@@ -79,7 +79,7 @@ Cook Islands, and Fiji
 
 ## Guam, Northern Marianas, U.S. Virgin Islands.
 
-![USoverseas.png](../../Images/SI/GDP_data/US_overseas_territories.png)
+![USoverseas.png](../../Images/Github/US_overseas_territories.png)
 
 These are all U.S. overseas territories. 
 We extrapolate Guam and the Marianas back from Puerto Rico, and the U.S. Virgin Islands 
@@ -87,13 +87,13 @@ using an average of Puerto Rico, Antigua, and St. Kitts and Nevis.
 
 ## Serbia and Montenegro
 
-![SRBMNE.png](../../Images/SI/GDP_data/SRB_MNE.png)
+![SRBMNE.png](../../Images/Github/SRB_MNE.png)
 
 We can extrapolate back using the growth rates given by the Maddison Project.
 
 ## South Sudan
 
-![SRBMNE.png](../../Images/SI/GDP_data/SSD.png)
+![SRBMNE.png](../../Images/Github/SSD.png)
 
 The World Bank data for South Sudan is clearly erroneous. 
 Since we have stocks from South Sudan from before its founding (2011), 
@@ -109,7 +109,7 @@ growth from 1987–1990 must have averaged 11.7%.
 
 ## Western Sahara
 
-![ESH.png](../../Images/SI/GDP_data/ESH.png)
+![ESH.png](../../Images/Github/ESH.png)
 
 We use GDP/capita from Morocco, since ESH is under occupation.
 
@@ -117,12 +117,12 @@ We use GDP/capita from Morocco, since ESH is under occupation.
 We use GDP/capita figures from Canada.
 
 ## Eritrea
-![ERI.png](../../Images/SI/GDP_data/ERI.png)
+![ERI.png](../../Images/Github/ERI.png)
 We extrapolate past 1990 using data from Ethiopia.
 
 ## Falklands, Isle of Man, Gibraltar, St Helena
 
-![UKoverseas.png](../../Images/SI/GDP_data/UK_overseas.png)
+![UKoverseas.png](../../Images/Github/UK_overseas.png)
 
 - **Isle of Man**: [Government figures](https://www.gov.im/media/1386794/moodys-isle-of-man-credit-rating-report-december-2024.pdf) 
 estimate real GDP growth at 2.9% in 2022, and 1.5% in 2023.
@@ -136,7 +136,7 @@ We extrapolate back using data from Brazil.
 
 ## Faroe Islands
 
-![FRO.png](../../Images/SI/GDP_data/FRO.png)
+![FRO.png](../../Images/Github/FRO.png)
 
 We use the Danish deflator to extrapolate back.
 
