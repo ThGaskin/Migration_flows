@@ -1,0 +1,98 @@
+BASE_PATH: ~/migration_project
+Data_loading:
+  covariates:
+  - GDP_cap:
+      idx: [i, j, k]
+      path: input_covariates/GDP_cap
+  - GDP_growth:
+      idx: [i, j, k]
+      path: input_covariates/GDP_growth
+  - Trade:
+      idx:
+      - [j, k]
+      - [k, j]
+      path: input_covariates/Trade
+  - Population:
+      idx: [i, j, k]
+      path: input_covariates/Population
+  - Life_expectancy:
+      idx: [i, j, k]
+      path: input_covariates/Life_expectancy
+  - Birth_rate:
+      idx: [j, k]
+      path: input_covariates/Birth_rate
+  - Death_rate:
+      idx: [j, k]
+      path: input_covariates/Death_rate
+  - Distance:
+      idx:
+      - [j, k]
+      path: input_covariates/Distance
+  - Linguistic_similarity:
+      idx:
+      - [i, k]
+      - [j, k]
+      path: input_covariates/Linguistic_similarity
+  - Religious similarity:
+      idx:
+      - [i, k]
+      - [j, k]
+      path: input_covariates/Religious_similarity
+  - Conflict_deaths:
+      idx: [j, k]
+      path: input_covariates/Conflict_deaths
+  - Refugees:
+      idx:
+      - [i, j]
+      - [i, k]
+      path: input_covariates/Refugees
+  - Refugees_diff:
+      idx:
+      - [i, j]
+      - [i, k]
+      path: input_covariates/Refugees_diff
+  - Colonial ties:
+      idx:
+      - [i, k]
+      - [j, k]
+      path: input_covariates/Colonial_ties
+  - EU:
+      idx: [i, j, k]
+      path: input_covariates/EU
+  data_path: Training_data
+  data_rescale: 1000.0
+  load_args: {}
+  load_from_dir: Results/z_100_yj_05_eta_10
+NeuralNet:
+  activation_funcs:
+    default: tanh
+    layer_specific:
+      -1:
+        args: [-12]
+        name: celu
+  biases:
+    default: [-1, 1]
+  latent_space_dim: 100
+  learning_rate: 0.002
+  nodes_per_layer: {default: 60}
+  num_layers: 7
+  optimizer: Adam
+Training:
+  Batch_size: 7
+  Confidence_band: {flow: 0.01, net_migration: 0.01, stock: 0.01}
+  N_epochs: 20001
+  Random_sample_size: 50000
+  Rescaling:
+    flow: {lmbda: 0.5}
+    net_migration: {lmbda: 0.5}
+    stock: {lmbda: 0.5}
+  clip_grad_norm: 1.0
+  flow_test_frac: 0.2
+  loss_function:
+    kwargs: {reduction: mean}
+    name: MSELoss
+  weight_factors: {flow: 1, net_migration: 1, regulariser: 0.1, stock: 10}
+  write_every: 100
+device: cuda
+dry_run: false
+path_note: RNN_z_100

@@ -1,4 +1,6 @@
 from cycler import cycler
+import logging
+logging.getLogger('matplotlib.font_manager').setLevel(logging.ERROR)
 
 """ Plot style settings for uniform Latex integration. """
 

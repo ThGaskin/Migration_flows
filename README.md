@@ -2,7 +2,6 @@
 
 Deep learning-based estimates of global migration flows
 ---
----
 > **Note**:
 > See the [Zenodo repository](https://zenodo.org/records/15623216) for the datasets. Except for the full flow table, 
 > all data is also stored in the repository in the `Estimates` folder.
