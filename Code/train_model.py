@@ -610,7 +610,6 @@ def epoch(epoch_init_stock) -> dict:
         epoch_stock_predictions.append(batch_stock_prediction)
 
     # Return epoch-averaged values
-    # TODO: Should we calculate a median instead?
     epoch_loss_dict = dict(
         (k, dict((v, torch.nanmean(torch.stack(epoch_loss_dict[k][v]))) for v in epoch_loss_dict[k].keys())) for k in epoch_loss_dict.keys()
     )
