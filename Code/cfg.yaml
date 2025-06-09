@@ -1,0 +1,122 @@
+# Path configuration
+BASE_PATH:  "/Users/thomasgaskin/Projects/Migration_flows" #"~/migration_project" #
+device: 'mps'
+path_note: ~ # Note added to out path
+dry_run: True # Do not save
+
+# Settings for loading the training data
+Data_loading:
+
+  # Path to data, relative to base path
+  data_path: 'Data/Training_data'
+
+  # Passed to `torch.load`
+  load_args: {weights_only: True}
+
+  # Continue training a neural network from a directory
+  load_from_dir: Results/20250512_135533_RNN_z_100
+
+  # Rescale the training data
+  data_rescale: 1e3
+
+  # Covariates to use; this is order-specific
+  covariates:
+    - GDP_cap:
+        path: 'input_covariates/GDP_cap' # GDP per capita
+        idx: [i, j, k]
+    - GDP_growth:
+        path: 'input_covariates/GDP_growth' # GDP growth
+        idx: [i, j, k]
+    - Trade:
+        path: 'input_covariates/Trade'
+        idx: [[j, k], [k, j]]
+    - Population:
+        path: 'input_covariates/Population'
+        idx: [i, j, k]
+    - Life_expectancy:
+        path: 'input_covariates/Life_expectancy'
+        idx: [i, j, k]
+    - Birth_rate:
+        path: 'input_covariates/Birth_rate'
+        idx: [j, k]
+    - Death_rate:
+        path: 'input_covariates/Death_rate'
+        idx: [j, k]
+    - Distance:
+        path: 'input_covariates/Distance'
+        idx: [[j, k]]
+    - Linguistic_similarity:
+        path: 'input_covariates/Linguistic_similarity'
+        idx: [[i, k], [j, k]]
+    - Religious_similarity:
+        path: 'input_covariates/Religious_similarity'
+        idx: [[i, k], [j, k]]
+    - Conflict_deaths:
+        path: 'input_covariates/Conflict_deaths'
+        idx: [j, k]
+    - Refugees:
+        path: 'input_covariates/Refugees'
+        idx: [[i, j], [i, k]]
+    - Refugees_diff:
+        path: 'input_covariates/Refugees_diff'
+        idx: [[i, j], [i, k]]
+    - Colonial_ties:
+        path: 'input_covariates/Colonial_ties'
+        idx: [[i, k], [j, k]]
+    - EU:
+        path: 'input_covariates/EU'
+        idx: [i, j, k]
+
+# Neural network settings
+NeuralNet:
+  num_layers: 5
+  nodes_per_layer:
+    default: 20
+  activation_funcs:
+    default: softplus
+    layer_specific:
+      -1:
+        name: celu
+        args: [-12]
+  biases:
+    default: [-1, 1]
+  learning_rate: 0.002
+  optimizer: Adam
+  latent_space_dim: 25
+
+# Training settings
+Training:
+
+  # Training parameters
+  N_epochs: 10
+  Random_sample_size: 1000
+  Batch_size: 7
+  write_every: 10
+
+  # Fraction of flow corridors to mask for testing
+  flow_test_frac: 0.0
+
+  # Gradient norm clipping
+  clip_grad_norm: False
+
+  # Rescaling lambdas for the Yeo-Johnson transforms
+  Rescaling:
+    stock:
+      lmbda: 0.5
+    net_migration:
+      lmbda: 0.5
+    flow:
+      lmbda: 0.5
+
+  # Confidence bands within which we do not penalise
+  Confidence_band:
+    stock: 0.01
+    net_migration: 0.01
+    flow: 0.01
+
+  # Balancing of the different terms in the loss function
+  weight_factors:
+    stock: 1
+    flow: 1
+    net_migration: 1
+    regulariser: 0

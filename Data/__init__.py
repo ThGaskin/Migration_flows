@@ -9,6 +9,7 @@ base_dir = os.path.dirname(__file__)
 lookup_table = pd.read_csv(os.path.join(base_dir, "Iso_code_lookup.csv"))
 countries_by_region = pd.read_csv(os.path.join(base_dir, "countries_by_region.csv"))
 countries_by_region = countries_by_region.groupby('Region').agg(list).to_dict()['Country ISO']
+countries_by_region['Eastern Asia'].append('TWN')
 
 # Make the world shapefile available for plotting
 import geopandas as gpd
@@ -41,7 +42,7 @@ flow_dsets = {
         data=xr.open_dataarray(os.path.join(base_dir, "Flow_data/National_Statistics/NZL_flows.nc")),
         primary_color=colors['c_darkgreen'], secondary_color=colors['c_lightgreen'], marker='^', s=10
     ),
-    "Facebook": dict(
+    "Facebook data": dict(
         data=xr.open_dataarray(os.path.join(base_dir, "Flow_data/Facebook/facebook_flows.nc")).where(lambda x: x>=25),
         primary_color=colors['c_purple'], secondary_color='#E1C6EC', ec=colors['c_darkgrey'], marker='o', s=10, lw=0.5
     )

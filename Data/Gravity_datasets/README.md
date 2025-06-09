@@ -12,7 +12,7 @@ which contains data from 1995–2023. We deflate to const. 2015 USD using the Wo
 by CEPII. Remaining NaN values are backwards-filled using the last known value. Only the `Value (2015 USD)` variable is 
 complete for the period from 1990, since this is the only covariate we are using as a training input.
 
-![Trade.png](../../Images/SI/tradeflows_extrapolation.png)
+![Trade.png](../../Images/Github/tradeflows_extrapolation.png)
 
 ## Linguistic similarity (`lang`)
 Linguistic similarity is taken from the USITC [Domestic and International Common Language Database (DICL)](https://www.usitc.gov/data/gravity/dicl.htm) 
@@ -22,7 +22,7 @@ SPM, SXM, SYR, TCA, TJK, TKL, VAT, VCT, VGB, VNM``
 In these cases, we use the average of linguistic proximity (``lpn``) and common native language (``cnl``) instead, as 
 recommended by the authors. For the remaining missing datapoint (BES islands), we use Curacao as a proxy.
 
-![Ling.png](../../Images/SI/ling.png)
+![Ling.png](../../Images/Github/ling.png)
 
 ## Religious similarity (`relig`)
 This is calculated from the ['Correlates of War'](https://correlatesofwar.org/data-sets/world-religion-data/) database, 
@@ -31,7 +31,7 @@ Missing values are taken from the [CIA World Factbook](https://www.cia.gov/the-w
 The religious similarity between two countries is then simply $\langle \alpha_i, \alpha_j \rangle$, 
 where $\alpha_i$ is the religious makeup of country $i$. The 'other' category is excluded (``othrgenpct``).
 
-![Relig.png](../../Images/SI/relig_sim.png)
+![Relig.png](../../Images/Github/relig_sim.png)
 
 ## EU membership (`eu`)
 Information on EU membership is taken from the CEPII dataset. 
