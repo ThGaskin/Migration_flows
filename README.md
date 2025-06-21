@@ -14,6 +14,23 @@ Deep learning-based estimates of global migration flows
 This repository contains all code and data needed to train and evaluate a deep neural network 
 used to infer annual bilateral migration flows between all countries since 1990. If you have downloaded the datasets from
 the Zenodo repository given above, you can directly evaluate the data from there.
+## Estimates
+The `Estimates` folder in this repository contains:
+- A file `flows.nc`: total origin-destination flows
+- A file `stocks.nc`: migrant stocks, including native-born stocks on the diagonal
+- A file `net_migration.nc`: net migration estimates
+- Additionally, a file `T.nc` containing all flows, disaggregated by birth, is provided in the Zenodo repository.
+Additionally, we provide two files for user convenience:
+- `mig_unilateral.csv`, containing the following unilateral variables:
+  - `imm`: total immigration flows
+  - `emi`: total emigration flows
+  - `net`: net migration
+  - `imm_pop`: total immigrant population (i.e. not native-born)
+  - `emi_pop`: total emigrant population (i.e. living abroad)
+- `mig_bilateral.ncsv`, provided in the Zenodo repository, containing the following variables:
+  - `mig_prev`: total origin-destination flows
+  - `mig_brth`: bilateral flows by birth, i.e. the `origin` coordinate reflects the birth place
+All files give both a mean estimate and a standard deviation.
 
 ## Evaluation
 The `Evaluate.ipynb` Jupyter notebook contained in this folder will guide you through the model evaluation step-by-step. Before you can run
