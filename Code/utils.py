@@ -362,13 +362,18 @@ def get_predictions(dir: str, *,
     with open(f"{dir}/cfg.yaml", "r") as file:
         nn_cfg = yaml.load(file)
 
+    # Load the neural network weights
+    weights = torch.load(f"{dir}/model_trained.pt", weights_only=True, map_location=torch.device(device))
+
     # Set up the neural network
     NN = NeuralNet(
-        input_size=input_data.shape[2] + 2 + nn_cfg['NeuralNet'].get('latent_space_dim', 0),
-        output_size=1 + nn_cfg['NeuralNet'].get('latent_space_dim', 0),
+        input_size=weights['layers.0.weight'].shape[1],
+        output_size=weights[max([s for s in list(weights.keys()) if s.endswith('.weight')], key=lambda x: int(x.split('.')[1]))].shape[0],
         **nn_cfg["NeuralNet"]
     ).to(device)
-    NN.load_state_dict(torch.load(f"{dir}/model_trained.pt", weights_only=True, map_location=torch.device(device)))
+
+    # Load the weights
+    NN.load_state_dict(weights)
     NN.eval()
 
     return generate_predictions(NN, input_data=input_data, edge_indices=edge_indices, S_0=S_0,

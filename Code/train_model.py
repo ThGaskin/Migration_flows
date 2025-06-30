@@ -11,8 +11,8 @@ import torch
 
 from ruamel.yaml import YAML
 
-from neural_net import NeuralNet
-from utils import yeo_johnson_transform, build_input
+from .neural_net import NeuralNet
+from .utils import yeo_johnson_transform, build_input
 
 yaml = YAML(typ="safe")
 

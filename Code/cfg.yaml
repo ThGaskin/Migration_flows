@@ -1,5 +1,5 @@
 # Path configuration
-BASE_PATH:  "/Users/thomasgaskin/Projects/Migration_flows" #"~/migration_project" #
+BASE_PATH:  "." #
 device: 'mps'
 path_note: ~ # Note added to out path
 dry_run: True # Do not save
@@ -14,7 +14,7 @@ Data_loading:
   load_args: {weights_only: True}
 
   # Continue training a neural network from a directory
-  load_from_dir: Results/20250512_135533_RNN_z_100
+  load_from_dir: ~
 
   # Rescale the training data
   data_rescale: 1e3
@@ -82,7 +82,7 @@ NeuralNet:
     default: [-1, 1]
   learning_rate: 0.002
   optimizer: Adam
-  latent_space_dim: 25
+  latent_space_dim: 5
 
 # Training settings
 Training:
@@ -94,7 +94,7 @@ Training:
   write_every: 10
 
   # Fraction of flow corridors to mask for testing
-  flow_test_frac: 0.0
+  flow_test_frac: 0.2
 
   # Gradient norm clipping
   clip_grad_norm: False
