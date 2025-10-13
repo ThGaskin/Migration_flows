@@ -675,10 +675,10 @@ def generate_ensemble_predictions(dirs: list, data: dict, *, device: str = 'cpu'
     :return: dictionary of estimates
     """
     samples = dict(
-        T_pred=torch.zeros(2, data['Y'], data['N'], data['N'], data['N']),
-        F_pred=torch.zeros(2, data['Y'], data['N'], data['N']),
-        S_pred=torch.zeros(2, data['Y'] + 1, data['N'], data['N']),
-        mu_pred=torch.zeros(2, data['Y'], data['N']),
+        T_pred=torch.zeros(3, data['Y'], data['N'], data['N'], data['N']),
+        F_pred=torch.zeros(3, data['Y'], data['N'], data['N']),
+        S_pred=torch.zeros(3, data['Y'] + 1, data['N'], data['N']),
+        mu_pred=torch.zeros(3, data['Y'], data['N']),
     )
 
     S_0 = data['S_0']
@@ -695,6 +695,7 @@ def generate_ensemble_predictions(dirs: list, data: dict, *, device: str = 'cpu'
             )
 
             # Add the offset to the stock sample
+            # TODO: can still cause negative std for small number of samples?
             pred['S_pred'] += torch.from_numpy(get_stock_offsets(
                 stock_predictions=xr.DataArray(
                     pred['S_pred'].cpu(), dims=['Year', 'Origin ISO', 'Destination ISO'],
@@ -709,10 +710,10 @@ def generate_ensemble_predictions(dirs: list, data: dict, *, device: str = 'cpu'
             for key in samples:
                 if i ==0:
                     samples[key][0] += pred[key].cpu() / len(dirs)
-                samples[key][1] += pred[key].cpu()**2 / (len(dirs)*(n_samples + 1))
-
+                samples[key][1] += pred[key].cpu()**2 / (len(dirs) * (n_samples + 1))
+                samples[key][2] += pred[key].cpu() / (len(dirs) * (n_samples + 1))
     for key in samples:
-        samples[key][1] = torch.sqrt(samples[key][1] - samples[key][0]**2)
+        samples[key][1] = samples[key][1] - samples[key][2]**2 #torch.sqrt(samples[key][1] - samples[key][0]**2)
 
     means = convert_tensor_predictions_to_xarray(
         **dict((k, samples[k][0]) for k in samples.keys()), years=gamma.coords['Year'].data[:-1],
