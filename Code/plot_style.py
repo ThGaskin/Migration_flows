@@ -23,7 +23,7 @@ colors = {
 # Plots style using the matplotlib rc parameters keys. Integrate this into the plots by updating the matplotlib.rcParams
 # dictionary: ``rcParams.update(**style)``.
 fs=9
-style = {"text.usetex": False, "mathtext.fontset": "cm", "font.family": ["Garamond Premier Pro", "serif"],
+style = {"text.usetex": False, "mathtext.fontset": "cm", "font.family": ["Garamond Premier Pro", "Arial", "serif"],
          "text.latex.preamble": r"\usepackage{amssymb} \usepackage{amsmath}", "font.size": fs, "axes.titlesize": fs,
          "axes.labelsize": fs, "xtick.labelsize": fs, "ytick.labelsize": fs, "legend.fontsize": fs,
          "grid.linewidth": 0.5, "savefig.bbox": "tight", "savefig.transparent": True, "axes.grid": True, "axes.spines.top": False,

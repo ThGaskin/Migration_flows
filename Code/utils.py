@@ -6,6 +6,7 @@ import torch
 import tqdm
 import xarray as xr
 from ruamel.yaml import YAML
+from typing import Union
 
 yaml = YAML(typ='safe')
 
@@ -13,14 +14,14 @@ from .neural_net import NeuralNet
 
 """ Utility functions used to generate predictions using a neural network """
 
-def yeo_johnson_transform(data: torch.Tensor | np.ndarray,
-                          lmbda: torch.Tensor | float,
+def yeo_johnson_transform(data: Union[torch.Tensor, np.ndarray],
+                          lmbda: Union[torch.Tensor, float],
                           *,
                           flip_negative_values: bool = True,
-                          mean: torch.Tensor | float | None = None,
-                          std: torch.Tensor | float | None = None,
+                          mean: Union[torch.Tensor, float, None] = None,
+                          std: Union[torch.Tensor, float, None] = None,
                           standardize: bool = False
-) -> torch.Tensor | np.ndarray:
+) -> Union[torch.Tensor, np.ndarray]:
 
     """ Yeo-Johnson transform with parameter lmbda. By default, the transformation is symmetric. If specified,
     a mean-zero and unit-variance distribution is returned. This function allows handling both torch.Tensors
@@ -72,11 +73,12 @@ def yeo_johnson_transform(data: torch.Tensor | np.ndarray,
     else:
         return res
 
-def inv_yeo_johnson(data: torch.Tensor | np.ndarray,
-                    lmbda: torch.Tensor | float,
-                    mean: torch.Tensor | float = 0.0,
-                    std: torch.Tensor | float = 1.0, *, flip_neg_values=True
-                    ) -> torch.Tensor | np.ndarray:
+def inv_yeo_johnson(data: Union[torch.Tensor, np.ndarray],
+                    lmbda: Union[torch.Tensor, float],
+                    mean: Union[torch.Tensor, float] = 0.0,
+                    std: Union[torch.Tensor, float] = 1.0, *,
+                    flip_neg_values=True
+                    ) -> Union[torch.Tensor, np.ndarray]:
     """ Inverse Yeo-Johnson transform. Reverses standardisations, if passed.
 
     :param data: data to transform
@@ -266,7 +268,7 @@ def generate_predictions(NN: NeuralNet, *,
                          show_pbar: bool = True,
                          device: str = 'cpu',
                          transformation_parameters: dict,
-                         scaling_factor: torch.Tensor | float = 1000.,
+                         scaling_factor: Union[torch.Tensor, float] = 1000.,
                          death_rate: torch.Tensor,
                          total_births: torch.Tensor,
                          **__
@@ -388,8 +390,8 @@ def convert_tensor_predictions_to_xarray(*,
                                          S_pred: torch.Tensor,
                                          mu_pred: torch.Tensor,
                                          F_pred: torch.Tensor,
-                                         years: np.ndarray | None = None,
-                                         countries: np.ndarray | None = None,
+                                         years: Union[np.ndarray, None] = None,
+                                         countries: Union[np.ndarray, None] = None,
                                          **__
                                          ) -> dict:
     """ Converts torch.Tensors into xarray items for easier indexing and plotting.
@@ -434,7 +436,7 @@ def convert_tensor_predictions_to_xarray(*,
 
 
 def generate_samples(data: dict, predictions: dict, *, cfg, n_samples: int, transformation_parameters: dict,
-                     stock_std: float | torch.Tensor = 0.1, device: str = 'cpu', show_pbar: bool = False) -> xr.Dataset:
+                     stock_std: Union[float, torch.Tensor] = 0.1, device: str = 'cpu', show_pbar: bool = False) -> xr.Dataset:
     """ Generate samples
 
     :param data: dictionary containing the training data

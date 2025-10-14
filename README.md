@@ -7,6 +7,8 @@ Deep learning-based estimates of global migration flows
 [![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 
+> [!NOTE]
+> We recommend using Python 3.11: this way progress bars in Jupyter notebooks will be correctly displayed.
 
 This repository contains all code and data needed to train and evaluate a deep neural network 
 used to infer annual bilateral migration flows between all countries since 1990. If you have downloaded the datasets (in particular the `T.nc` flow table) from

@@ -12,6 +12,7 @@ import xarray as xr
 from dantro.plot.utils import ColorManager
 from matplotlib.colorbar import Colorbar
 from ruamel.yaml import YAML
+from typing import Union
 
 from Code.plot_style import colors
 from Data import world, lookup_table, coordinates
@@ -301,7 +302,7 @@ def add_map(ax, *, add_sea: bool = True, sea_color: str = 'lightblue'):
         ax.add_feature(sea, zorder=-3, lw=0)
     ax.set_extent([-180, 180, -60, 73])
 
-def add_cbar_to_map(fig, cm: ColorManager, *, cbar_loc = list | None, **kwargs) -> Colorbar:
+def add_cbar_to_map(fig, cm: ColorManager, *, cbar_loc = Union[list, None], **kwargs) -> Colorbar:
 
     """Adds a colorbar to a map.
 
@@ -323,7 +324,7 @@ def add_cbar_to_map(fig, cm: ColorManager, *, cbar_loc = list | None, **kwargs) 
     return cbar
 
 def plot_to_map(data, fig, patches, *, highlight_country: str = None, cbar_loc = None, cm: ColorManager = None,
-                add_cbar: bool = True, remove_old_cbars: bool = True, **cbar_kwargs) -> tuple[ColorManager, Colorbar | None]:
+                add_cbar: bool = True, remove_old_cbars: bool = True, **cbar_kwargs) -> tuple[ColorManager, Union[Colorbar, None]]:
     """ Plots a dataset to the map. The dataset must be one-dimensional. An individual country can be highlighted.
 
     :param data: xr.DataArray of data to be plotted to the map. It must be indexed by a single coordinate of the country ISO.
@@ -409,7 +410,7 @@ def is_point_in_extent(ax, lat, lon):
     return in_lon and in_lat
 
 def highlight_countries(ax, patch_dict,
-                        countries: str | list,
+                        countries: Union[str, list],
                         coordinates: dict = None,
                         patch_kwargs: dict = {}, text_kwargs: dict = {}):
 

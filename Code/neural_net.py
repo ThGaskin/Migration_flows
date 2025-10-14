@@ -3,9 +3,8 @@ from typing import Any, List, Sequence, Union
 import torch
 from torch import nn
 
-
 def random_tensor(
-    cfg: dict | list, *, size: tuple = None, device: str, **__
+    cfg: Union[dict, list], *, size: tuple = None, device: str, **__
 ) -> torch.Tensor:
     """Generates a multi-dimensional random tensor. Each entry can be initialised separately, or a common
     initialisation configuration is used for each entry. For instance, the configuration
