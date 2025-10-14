@@ -1,4 +1,4 @@
-from typing import Any, List, Sequence, Union
+from typing import Any, List, Union
 
 import torch
 from torch import nn

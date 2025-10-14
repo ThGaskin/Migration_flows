@@ -10,7 +10,13 @@ from typing import Union
 
 yaml = YAML(typ='safe')
 
-from .neural_net import NeuralNet
+import sys
+from os.path import dirname as up
+from dantro._import_tools import import_module_from_path
+sys.path.append(up(__file__))
+Code = import_module_from_path(mod_path=up(__file__), mod_str="Code")
+
+from Code import NeuralNet
 
 """ Utility functions used to generate predictions using a neural network """
 

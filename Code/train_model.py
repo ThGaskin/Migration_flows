@@ -11,8 +11,12 @@ import torch
 
 from ruamel.yaml import YAML
 
-from .neural_net import NeuralNet
-from .utils import yeo_johnson_transform, build_input
+from os.path import dirname as up
+from dantro._import_tools import import_module_from_path
+sys.path.append(up(__file__))
+Code = import_module_from_path(mod_path=up(__file__), mod_str="Code")
+
+from Code import NeuralNet, yeo_johnson_transform, build_input
 
 yaml = YAML(typ="safe")
 
