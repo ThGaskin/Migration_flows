@@ -68,6 +68,7 @@ load_args = cfg["Data_loading"].get("load_args", {})
 
 # Net migration data and mask of entries excluded from the optimisation; weights quantifying the uncertainty on each
 # entry (currently all 1)
+print('Loading data ... ')
 NetMigration = (
     torch.load(
         os.path.expanduser(f"{BASE_PATH}/{data_path}/net_migration.pt"), **load_args
@@ -155,6 +156,7 @@ EdgeIndices = (
     ).to(device).long()
 )
 
+print('Constructing training data ... ')
 # Build the input data to the neural network (covariates for each year and edge)
 TrainingData = build_input(
     cfg, EdgeIndices, Y = NetMigration.shape[0], device=device
@@ -253,6 +255,7 @@ else:
 
     del perm, test_idx, train_idx, test_mask, train_mask, od_indices
 
+print('Transforming the training data ... ')
 # Transform the targets and store them in a dictionary together with the weights, masks, and batch indices
 TrainingDataDict = dict(
     net_migration=transform_data(
@@ -290,6 +293,7 @@ TrainingDataDict = dict(
 # Scaling factor for the Neural Net output
 Scale = torch.tensor(cfg["Data_loading"].get("data_rescale", 1.0))
 
+print('Initialising neural network ... ')
 NN = NeuralNet(
     input_size=TrainingData.shape[2] + 2 + cfg['NeuralNet'].get('latent_space_dim', 0),
     output_size=1 + cfg['NeuralNet'].get('latent_space_dim', 0), **cfg["NeuralNet"]
@@ -388,11 +392,12 @@ def batch(batch_idx, batch_stock_init, epoch_loss_dict, h_t=None):
 
             # Make a prediction on the detached edges
             idx_i, idx_j, idx_k = EdgeIndices[:, detached]
-            res = NN(torch.cat([TrainingData[t][detached],
-                                stock_input[idx_i, idx_j].unsqueeze(1),
-                                stock_input[idx_i, idx_k].unsqueeze(1),
-                                h_t[detached]],
-                               dim=1)).detach()
+            with torch.no_grad():
+                res = NN(torch.cat([TrainingData[t][detached],
+                                    stock_input[idx_i, idx_j].unsqueeze(1),
+                                    stock_input[idx_i, idx_k].unsqueeze(1),
+                                    h_t[detached]],
+                                   dim=1))
             T[idx_i, idx_j, idx_k] = Scale * torch.exp(res[:, 0])
             h_t[detached, :] = res[:, 1:]
         else:
@@ -640,6 +645,7 @@ def epoch(epoch_init_stock) -> dict:
 # Run
 # ----------------------------------------------------------------------------------------------------------------------
 # Print table header
+print('Commencing training.')
 print(
     "{:<10}| {:<60}  | {:<60}  | {:<8}  | {:<5}".format(
         "Epoch", "Prediction", "Loss", "Test err", "Time [s]"

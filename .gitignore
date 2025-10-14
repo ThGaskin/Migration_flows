@@ -1,2 +1,6 @@
 .DS_Store
 .idea
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
