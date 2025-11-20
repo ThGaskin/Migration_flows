@@ -87,10 +87,14 @@ The neural network weights are stored in the `Trained_networks` folder, alongsid
 The training code is fully configuration-based, meaning you do not need to edit any Python code to configure the training procedure.
 Instead, you can adjust the settings in the `Code/cfg.yml` file, and then call
 ```python
-python -m Code.train_model Code/cfg.yaml
+python -m Code.train_model
 ```
 This will load all the training data, located in `Data/Training_data`, and train a neural network. We recommend training
-on a GPU. Below you will find a guide to all the settings provided in the `cfg.yaml` file; the settings shown are
+on a GPU. You can also use your own configuration file to run the model, passing the path to the config as an argument:
+```python
+python -m Code.train_model path/to/cfg.yaml
+```
+Below you will find a guide to all the settings provided in the `cfg.yaml` file; the settings shown are
 the original settings used to train the network:
 
 ```yaml
@@ -260,20 +264,25 @@ python -m Code.train_model Code/cfg.yaml
 ```
 with the config settings above. You should see an output in the console that looks like this:
 ```commandline
+Loading data ... 
+Constructing training data ... 
+Transforming the training data ... 
+Initialising neural network ... 
+Commencing training.
 Epoch     | Prediction                                                    | Loss                                                          | Test err  | Time [s]
 —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
           | Stock         | Net migr.     | Flow          | Outflow       | Stock         | Net migr.     | Flow          | Outflow       |           |      
 —————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————————
-1         |4322.1226      | 175733.8906   | 23585.3516    | 988476.9375   | 1.6634316     | 2.2389610     | 23.5002422    | 0.0000000     | 33226.7891| 6.2741
-2         |4309.5229      | 175266.1406   | 22712.1484    | 927179.0000   | 1.6527443     | 2.1943829     | 22.5668011    | 0.0000000     | 31988.4902| 5.2951
-3         |4299.4482      | 174890.6406   | 21881.2637    | 870300.1250   | 1.6420590     | 2.1545382     | 21.6801319    | 0.0000000     | 30809.6914| 5.2632
-4         |4291.4243      | 174589.0469   | 21092.2031    | 819864.5625   | 1.6354619     | 2.1165998     | 20.8394680    | 0.0000000     | 29689.7305| 5.4498
-5         |4285.0933      | 174351.3750   | 20342.2871    | 772784.6875   | 1.6300865     | 2.0847149     | 20.0419292    | 0.0000000     | 28625.2090| 5.5193
-6         |4280.1152      | 174166.6719   | 19617.3242    | 728620.7500   | 1.6255611     | 2.0587058     | 19.2723675    | 0.0000000     | 27595.8398| 5.4035
-7         |4276.5591      | 174021.5312   | 18919.6934    | 687027.1250   | 1.6215575     | 2.0369611     | 18.5332489    | 0.0000000     | 26604.9766| 5.5283
-8         |4274.7324      | 173906.0781   | 18246.1699    | 648351.6875   | 1.6181552     | 2.0172634     | 17.8210449    | 0.0000000     | 25648.0781| 5.5880
-9         |4274.0884      | 173811.5469   | 17605.2793    | 613443.9375   | 1.6154636     | 1.9999654     | 17.1445656    | 0.0000000     | 24737.0996| 5.4904
-10        |4274.1289      | 173726.2500   | 16985.8691    | 579894.7500   | 1.6135281     | 1.9819719     | 16.4921188    | 0.0000000     | 23856.4414| 5.7321
+1         |4686.8232      | 180747.6406   | 10434.8701    | 264238.1875   | 1.4369956     | 2.0030055     | 10.1506824    | 0.0000000     | 14109.5010| 3.8731
+2         |4572.4038      | 174883.6094   | 9908.8691     | 246032.5312   | 1.4100742     | 1.7199326     | 9.5890341     | 0.0000000     | 13386.8721| 2.9753
+3         |4589.6255      | 170080.1562   | 9411.5352     | 228803.5625   | 1.4163580     | 1.5603771     | 9.0599060     | 0.0000000     | 12704.5068| 2.9856
+4         |4616.8042      | 166363.1094   | 8935.4854     | 212317.5312   | 1.4214785     | 1.4561423     | 8.5551128     | 0.0000000     | 12050.2988| 2.9572
+5         |4647.1450      | 163731.9219   | 8482.3730     | 196600.0312   | 1.4325629     | 1.3825227     | 8.0761051     | 0.0000000     | 11426.5547| 2.9929
+6         |4684.0562      | 161697.1562   | 8051.8315     | 181645.7500   | 1.4475509     | 1.3230168     | 7.6228161     | 0.0000000     | 10833.6934| 2.9392
+7         |4720.3896      | 160106.8281   | 7642.7285     | 167429.2188   | 1.4679828     | 1.2600106     | 7.1937671     | 0.0000000     | 10269.9189| 2.9424
+8         |4754.8413      | 158646.4844   | 7255.8135     | 154066.3750   | 1.4964087     | 1.2152784     | 6.7896509     | 0.0000000     | 9736.5977 | 2.9235
+9         |4785.5820      | 157552.2812   | 6888.1118     | 142006.4531   | 1.5155653     | 1.1880594     | 6.4072700     | 0.0000000     | 9229.1387 | 2.9768
+10        |4812.8784      | 156478.2188   | 6540.7080     | 130781.0938   | 1.5352083     | 1.1609012     | 6.0475140     | 0.0000000     | 8749.0977 | 3.1074
 ```
 The `Prediction` and `Test err` columns simply list L1 errors on the various target datasets — this way you can compare the model performance for different loss functions. The `Loss` columns
-actually indicate the training loss – what the model is being trained on. 
+actually indicate the training loss – what the model is being trained on.

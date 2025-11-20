@@ -1,3 +1,20 @@
+"""
+    Migration Flow Model with Recurrent Neural Network
+
+    This module implements a recurrent neural network model for estimating international
+    migration flows. The model integrates stock data, net migration, and known flow data
+    to predict migration patterns while maintaining physical consistency constraints.
+
+    Key features:
+    - Recursive stock-flow modeling with temporal dependencies
+    - Custom RNN with latent state for capturing migration dynamics
+    - Physical constraints (population bounds, stock conservation)
+    - Multi-objective optimization with configurable loss weights
+
+    The model processes country-pair data over time, using neural networks to estimate
+    flows that reconcile observed stock differences and net migration patterns.
+"""
+
 # ----------------------------------------------------------------------------------------------------------------------
 # Imports
 # ----------------------------------------------------------------------------------------------------------------------
@@ -11,24 +28,30 @@ import torch
 
 from ruamel.yaml import YAML
 
-from os.path import dirname as up
-from dantro._import_tools import import_module_from_path
-sys.path.append(up(__file__))
-Code = import_module_from_path(mod_path=up(__file__), mod_str="Code")
-
-from Code import NeuralNet, yeo_johnson_transform, build_input
+from Code import NeuralNet
+from Code import yeo_johnson_transform, build_input
 
 yaml = YAML(typ="safe")
 
-# Load the configuration
-with open(sys.argv[1], "r") as file:
-    cfg = yaml.load(file)
+# Load the configuration, with the option of passing a config path
+if len(sys.argv) > 1:
+    with open(sys.argv[1], "r") as file:
+        cfg = yaml.load(file)
+else:
+    from pathlib import Path
+    config_path = Path(__file__).parent / "cfg.yaml"
+    with open(config_path, "r") as file:
+        cfg = yaml.load(file)
 
 # Set default device
 device = cfg["device"]
 
 # Load the base paths
 BASE_PATH = cfg["BASE_PATH"]
+
+# Set seed for reproducibility, if given
+if cfg.get('seed', None) is not None:
+    torch.manual_seed(cfg['seed'])
 
 # Load or create the save path, if not running in dry run setting (no data saving)
 dry_run = cfg.get("dry_run", False)
@@ -62,6 +85,7 @@ if cfg["Data_loading"].get("load_from_dir", None) is not None:
 # ----------------------------------------------------------------------------------------------------------------------
 # Path to training data, relative to base path
 data_path = cfg["Data_loading"]["data_path"]
+target_data_cfg = cfg["Data_loading"].get('targets', {})
 
 # Load args, passed to ``torch.load``
 load_args = cfg["Data_loading"].get("load_args", {})
@@ -71,47 +95,41 @@ load_args = cfg["Data_loading"].get("load_args", {})
 print('Loading data ... ')
 NetMigration = (
     torch.load(
-        os.path.expanduser(f"{BASE_PATH}/{data_path}/net_migration.pt"), **load_args
+        os.path.expanduser(f"{BASE_PATH}/{data_path}/{target_data_cfg.get('net_migration', 'net_migration')}.pt"), **load_args
     ).to(device).float()
 )
 NetMigrationMask = (
     torch.load(
-        os.path.expanduser(f"{BASE_PATH}/{data_path}/net_migration_mask.pt"),
+        os.path.expanduser(f"{BASE_PATH}/{data_path}/{target_data_cfg.get('net_migration_mask', 'net_migration_mask')}.pt"),
         **load_args,
     ).to(device).bool()
 )
 NetMigrationWeights = (
     torch.load(
-        os.path.expanduser(f"{BASE_PATH}/{data_path}/net_migration_weights.pt"), **load_args
+        os.path.expanduser(f"{BASE_PATH}/{data_path}/{target_data_cfg.get('net_migration_weights', 'net_migration_weights')}.pt"), **load_args
     ).to(device).float()
 )
 
 # Stock, stock differences, and mask of entries excluded from the optimisation;
 # weights quantifying the uncertainty on each entry
 Stock = (
-    torch.load(os.path.expanduser(f"{BASE_PATH}/{data_path}/stock.pt"), **load_args).to(device).float()
+    torch.load(os.path.expanduser(f"{BASE_PATH}/{data_path}/{target_data_cfg.get('stock', 'stock')}.pt"), **load_args).to(device).float()
 )
-# StockMask = (
-#     torch.load(os.path.expanduser(f"{BASE_PATH}/{data_path}/stock_mask.pt"), **load_args).to(device).bool()
-# )
-# StockWeights = (
-#     torch.load(os.path.expanduser(f"{BASE_PATH}/{data_path}/stock_weights.pt"), **load_args).to(device).float()
-# )
 StockDifferences = (
-    torch.load(os.path.expanduser(f"{BASE_PATH}/{data_path}/stock_diff.pt"), **load_args).to(device).float()
+    torch.load(os.path.expanduser(f"{BASE_PATH}/{data_path}/{target_data_cfg.get('stock_diff', 'stock_diff')}.pt"), **load_args).to(device).float()
 )
 StockDifferenceMask = (
     torch.load(
-        os.path.expanduser(f"{BASE_PATH}/{data_path}/stock_diff_mask.pt"), **load_args
+        os.path.expanduser(f"{BASE_PATH}/{data_path}/{target_data_cfg.get('stock_diff_mask', 'stock_diff_mask')}.pt"), **load_args
     ).to(device).bool()
 )
 StockDifferenceWeights = (
-    torch.load(os.path.expanduser(f"{BASE_PATH}/{data_path}/stock_diff_weights.pt"), **load_args).to(device).float()
+    torch.load(os.path.expanduser(f"{BASE_PATH}/{data_path}/{target_data_cfg.get('stock_diff_weights', 'stock_diff_weights')}.pt"), **load_args).to(device).float()
 )
 # Array of the year indices to which the stock data correspond (typically every 5 years)
 StockRange = (
     torch.load(
-        os.path.expanduser(f"{BASE_PATH}/{data_path}/stock_range.pt"), **load_args
+        os.path.expanduser(f"{BASE_PATH}/{data_path}/{target_data_cfg.get('stock_range', 'stock_range')}.pt"), **load_args
     ).to(device).int().tolist()
 )
 
@@ -119,12 +137,12 @@ StockRange = (
 # and death rates for each country over time
 Population = (
     torch.load(
-        os.path.expanduser(f"{BASE_PATH}/{data_path}/total_population.pt"), **load_args
+        os.path.expanduser(f"{BASE_PATH}/{data_path}/{target_data_cfg.get('total_population', 'total_population')}.pt"), **load_args
     ).to(device).float()
 )
 Births = (
     torch.load(
-        os.path.expanduser(f"{BASE_PATH}/{data_path}/total_births.pt"), **load_args
+        os.path.expanduser(f"{BASE_PATH}/{data_path}/{target_data_cfg.get('total_births', 'total_births')}.pt"), **load_args
     ).to(device).float()
 )
 # Reshape into a diagonal matrix for each year
@@ -133,26 +151,26 @@ Births = torch.stack([torch.diag(Births[i]) for i in range(len(Births))])
 # Death rates for each destination country and year
 DeathRates = (
     torch.load(
-        os.path.expanduser(f"{BASE_PATH}/{data_path}/death_rate.pt"), **load_args
+        os.path.expanduser(f"{BASE_PATH}/{data_path}/{target_data_cfg.get('death_rate', 'death_rate')}.pt"), **load_args
     ).to(device).float()
 ).reshape(-1, 1, Births.shape[-1])
 
 # Known flow data and mask; weights quantifying uncertainty on each entry (currently only not 1 for Quantmig
 # entries)
 Flow = (
-    torch.load(os.path.expanduser(f"{BASE_PATH}/{data_path}/flow.pt"), **load_args).to(device).float()
+    torch.load(os.path.expanduser(f"{BASE_PATH}/{data_path}/{target_data_cfg.get('flow', 'flow')}.pt"), **load_args).to(device).float()
 )
 FlowMask = (
-    torch.load(os.path.expanduser(f"{BASE_PATH}/{data_path}/flow_mask.pt"), **load_args).to(device).bool()
+    torch.load(os.path.expanduser(f"{BASE_PATH}/{data_path}/{target_data_cfg.get('flow_mask', 'flow_mask')}.pt"), **load_args).to(device).bool()
 )
 FlowWeights = (
-    torch.load(os.path.expanduser(f"{BASE_PATH}/{data_path}/flow_weights.pt"), **load_args).to(device).float()
+    torch.load(os.path.expanduser(f"{BASE_PATH}/{data_path}/{target_data_cfg.get('flow_weights', 'flow_weights')}.pt"), **load_args).to(device).float()
 )
 
 # Network edges to train on
 EdgeIndices = (
     torch.load(
-        os.path.expanduser(f"{BASE_PATH}/{data_path}/edge_indices.pt"), **load_args
+        os.path.expanduser(f"{BASE_PATH}/{data_path}/{target_data_cfg.get('edge_indices', 'edge_indices')}.pt"), **load_args
     ).to(device).long()
 )
 
@@ -196,16 +214,52 @@ for key in list(cfg["Training"]["Rescaling"].keys()):
     ).to(device)
 
 def transform_data(_data_dict) -> dict:
-    """Transforms a dataset using a transformation dictionary, and returns all the information needed to recreate
-    the transform.
+    """
+    Transform dataset using Yeo-Johnson transformation and standardize.
 
-    :param _data_dict: a dictionary containing the following keys:
-        - data: the data to transform
-        - mask: a mask to select entries to transform
-        - batch_indices: batch indices used to group time series slices together
-        - cfg: dictionary of transformation parameters, passed to `yeo_johnson_transform`
-    :return: a dictionary containing the transformed dataset, the means and standard deviations of the (uncentralised)
-        transformed data, and the dictionary of transformation parameters, as well the original untransformed data
+    Applies Yeo-Johnson power transformation to normalize the data distribution,
+    then centers and scales the transformed data to zero mean and unit variance.
+    This is particularly useful for handling skewed distributions and improving
+    neural network training stability.
+
+    The transformation is applied batch-wise, with separate normalization
+    parameters computed for each batch to handle potential distribution shifts
+    over time.
+
+    Parameters
+    ----------
+    _data_dict : dict
+        Dictionary containing the data and transformation parameters with keys:
+        - 'data': torch.Tensor
+            Raw data to transform, typically of shape [batch_size, ...]
+        - 'mask': torch.Tensor (bool)
+            Mask indicating which elements to include in transformation
+        - 'batch_indices': list
+            Indices specifying how to group data into batches
+        - 'transformation_parameters': dict
+            Parameters for Yeo-Johnson transformation, including 'lmbda'
+
+    Returns
+    -------
+    dict
+        Enhanced dictionary with transformation results, containing all original
+        keys plus:
+        - 'transformed_data': list of torch.Tensor
+            Transformed, centered, and scaled data for each batch
+        - 'mean': list of torch.Tensor
+            Mean of transformed (but not centered) data for each batch
+        - 'std': list of torch.Tensor
+            Standard deviation of transformed data for each batch
+
+    Notes
+    -----
+    The transformation pipeline is:
+    1. Apply Yeo-Johnson transform to masked data
+    2. Compute mean and std of transformed data per batch
+    3. Center and scale: (transformed - mean) / std
+
+    This ensures the final transformed data has zero mean and unit variance
+    while preserving the distribution-shaping benefits of Yeo-Johnson.
     """
     _data_transformed = [
         yeo_johnson_transform(
@@ -342,12 +396,44 @@ for key in cfg['Training']['weight_factors'].keys():
 def batch(batch_idx, batch_stock_init, epoch_loss_dict, h_t=None):
 
     """
+    Process a single time batch through the recurrent migration model.
 
-    :param h_t: the hidden state
-    :param batch_idx:
-    :param batch_stock_init:
-    :param epoch_loss_dict:
-    :return:
+    A batch represents a contiguous time period between stock measurement points.
+    This function processes all years within the batch, updating stocks recursively
+    and accumulating flows while tracking the hidden state.
+
+    The function handles:
+    - Random sampling of edges for gradient computation (detached/undetached)
+    - Recursive stock prediction using birth, death, and migration flows
+    - Hidden state propagation through time
+    - Loss computation for stock differences, net migration, and flows
+
+    Parameters
+    ----------
+    batch_idx : int
+        Index of the current batch in BatchYears list
+    batch_stock_init : torch.Tensor
+        Initial stock matrix [N, N] for the first year of the batch
+    epoch_loss_dict : dict
+        Dictionary to accumulate loss statistics across the batch.
+        Structure: {'prediction': {metric: list}, 'loss': {metric: list}}
+    h_t : torch.Tensor, optional
+        Initial hidden state [num_edges, latent_dim] for the batch.
+        If None, no latent state is used.
+
+    Returns
+    -------
+    tuple
+        batch_loss : torch.Tensor
+            Total loss for the batch, suitable for backpropagation
+        stock_prediction : torch.Tensor
+            Final stock matrix [N, N] at the end of the batch
+        flow_predictions : torch.Tensor
+            Stacked flow predictions for all years in the batch
+        epoch_loss_dict : dict
+            Updated loss dictionary with batch statistics appended
+        h_t : torch.Tensor
+            Final hidden state at the end of the batch
     """
 
     # Store the flow predictions to allow for testing after each epoch
@@ -366,29 +452,35 @@ def batch(batch_idx, batch_stock_init, epoch_loss_dict, h_t=None):
     # Run the model forward in time and optimise the neural network parameters
     for t in BatchYears[batch_idx]:
 
-        # Create an empty flow table and fill most of the edges with detached (gradient-free) predictions
-        T = torch.zeros(N, N, N, device=device)
-
-        # Randomly select RANDOM_SAMPLE_SIZE many indices from the edge list and populate the flow table
+        # Randomly select RANDOM_SAMPLE_SIZE many indices from the edge list
         shuffled_edge_indices = torch.randperm(EdgeIndices.shape[1])
         undetached = shuffled_edge_indices[
-                     : min(EdgeIndices.shape[1] - 1, RANDOM_SAMPLE_SIZE)
-                     ]
+            : min(EdgeIndices.shape[1] - 1, RANDOM_SAMPLE_SIZE)
+        ]
         detached = shuffled_edge_indices[
-                   min(EdgeIndices.shape[1] - 1, RANDOM_SAMPLE_SIZE):
-                   ]
+            min(EdgeIndices.shape[1] - 1, RANDOM_SAMPLE_SIZE):
+        ]
+
+        # Initialize aggregation tensors
+        net_stock_flow = torch.zeros(N, N, device=device)  # inflow - outflow for stock[i,k]
+        flow = torch.zeros(N, N, device=device)  # total flow[j,k]
+
         # Prediction in the case of a latent dimension
         if h_t is not None:
-
             # Make a prediction on the undetached edges
             idx_i, idx_j, idx_k = EdgeIndices[:, undetached]
             res = NN(torch.cat([TrainingData[t][undetached],
-                                   stock_input[idx_i, idx_j].unsqueeze(1),
-                                   stock_input[idx_i, idx_k].unsqueeze(1),
-                                   h_t[undetached]],
-                        dim=1))
-            T[idx_i, idx_j, idx_k] = Scale * torch.exp(res[:, 0])
-            h_t[undetached, :] = res[:, 1:]
+                                stock_input[idx_i, idx_j].unsqueeze(1),
+                                stock_input[idx_i, idx_k].unsqueeze(1),
+                                h_t[undetached]],
+                               dim=1))
+            T_values = Scale * torch.exp(res[:, 0])
+            h_t[undetached, :] = res[:, 1:].tanh()
+
+            # Accumulate into aggregation tensors
+            net_stock_flow.index_put_((idx_i, idx_k), T_values, accumulate=True)  # inflow
+            net_stock_flow.index_put_((idx_i, idx_j), -T_values, accumulate=True)  # outflow
+            flow.index_put_((idx_j, idx_k), T_values, accumulate=True)
 
             # Make a prediction on the detached edges
             idx_i, idx_j, idx_k = EdgeIndices[:, detached]
@@ -398,46 +490,55 @@ def batch(batch_idx, batch_stock_init, epoch_loss_dict, h_t=None):
                                     stock_input[idx_i, idx_k].unsqueeze(1),
                                     h_t[detached]],
                                    dim=1))
-            T[idx_i, idx_j, idx_k] = Scale * torch.exp(res[:, 0])
-            h_t[detached, :] = res[:, 1:]
-        else:
+                T_values = Scale * torch.exp(res[:, 0])
+                h_t[detached, :] = res[:, 1:].tanh()
 
+                # Accumulate into aggregation tensors
+                net_stock_flow.index_put_((idx_i, idx_k), T_values, accumulate=True)
+                net_stock_flow.index_put_((idx_i, idx_j), -T_values, accumulate=True)
+                flow.index_put_((idx_j, idx_k), T_values, accumulate=True)
+        else:
             # Make a prediction on the undetached edges
             idx_i, idx_j, idx_k = EdgeIndices[:, undetached]
-            T[idx_i, idx_j, idx_k] = (
-                    Scale * torch.exp(NN(
-                        torch.cat([TrainingData[t][undetached],
-                                   stock_input[idx_i, idx_j].unsqueeze(1),
-                                   stock_input[idx_i, idx_k].unsqueeze(1)],
-                                  dim=1))).flatten()
-            )
+            T_values = Scale * torch.exp(NN(
+                torch.cat([TrainingData[t][undetached],
+                           stock_input[idx_i, idx_j].unsqueeze(1),
+                           stock_input[idx_i, idx_k].unsqueeze(1)],
+                          dim=1))).flatten()
+
+            # Accumulate into aggregation tensors
+            net_stock_flow.index_put_((idx_i, idx_k), T_values, accumulate=True)
+            net_stock_flow.index_put_((idx_i, idx_j), -T_values, accumulate=True)
+            flow.index_put_((idx_j, idx_k), T_values, accumulate=True)
 
             # Make a prediction on the detached edges
             idx_i, idx_j, idx_k = EdgeIndices[:, detached]
-            T[idx_i, idx_j, idx_k] = (
-                    Scale * torch.exp(NN(
-                        torch.cat([TrainingData[t][detached],
-                                   stock_input[idx_i, idx_j].unsqueeze(1),
-                                   stock_input[idx_i, idx_k].unsqueeze(1)],
-                                  dim=1)).detach()).flatten()
-            )
+            with torch.no_grad():
+                T_values = Scale * torch.exp(NN(
+                    torch.cat([TrainingData[t][detached],
+                               stock_input[idx_i, idx_j].unsqueeze(1),
+                               stock_input[idx_i, idx_k].unsqueeze(1)],
+                              dim=1))).flatten()
 
-        # Predict the stock of next year, taking demographics into account. Births in a given country increase the
-        # native-born stock.
+                # Accumulate into aggregation tensors
+                net_stock_flow.index_put_((idx_i, idx_k), T_values, accumulate=True)
+                net_stock_flow.index_put_((idx_i, idx_j), -T_values, accumulate=True)
+                flow.index_put_((idx_j, idx_k), T_values, accumulate=True)
+
+        # Predict the stock of next year
         stock_prediction = (
                 Births[t]
                 + (1 - DeathRates[t]) * stock_prediction
-                + T.sum(dim=1) - T.sum(dim=2)
+                + net_stock_flow
         )
 
-        # Calculate the total flow by summing over all birthplaces
-        flow = T.sum(dim=0)
         batch_flow_predictions.append(flow)
 
         # Predict the net migration
         batch_net_migration_predictions.append(flow.sum(dim=0) - flow.sum(dim=1))
 
-        # The total outflow also cannot exceed the total population
+        # The total outflow also cannot exceed the total population. This can be used as a regulariser, but is
+        # usually not necessary
         outflow_error_population = torch.relu(
             flow.sum(dim=1) - Population[t]
         ).mean()
@@ -447,14 +548,13 @@ def batch(batch_idx, batch_stock_init, epoch_loss_dict, h_t=None):
         # dominate the loss and decrease training performance
         total_additional_err = cfg["Training"]["weight_factors"]["regulariser"] * (
                 inv_pop_std * outflow_error_population
-              #+ inv_stock_std * outflow_error_stock
         )
-        batch_loss = batch_loss + total_additional_err
         epoch_loss_dict["prediction"]["outflow"].append(
             outflow_error_population.detach()
-            # + outflow_error_stock.detach()
         )
         epoch_loss_dict["loss"]["outflow"].append(total_additional_err.clone().detach())
+        if cfg["Training"]["weight_factors"].get("regulariser", 0) > 0:
+            batch_loss = batch_loss + total_additional_err
 
         # Prepare stock covariate for next year
         # Ensure stocks are positive
@@ -476,6 +576,11 @@ def batch(batch_idx, batch_stock_init, epoch_loss_dict, h_t=None):
     )
 
     for key in TrainingDataDict.keys():
+
+        # If no values are present, continue
+        if (~(TrainingDataDict[key]["mask"][TrainingDataDict[key]["batch_indices"][batch_idx]])).all():
+            continue
+
         # Transform the prediction. Centralise using the mean and standard deviation from
         # the transformed target data
         predictions_transformed = (
@@ -527,35 +632,46 @@ def batch(batch_idx, batch_stock_init, epoch_loss_dict, h_t=None):
 # Single training epoch
 # ----------------------------------------------------------------------------------------------------------------------
 def epoch(epoch_init_stock) -> dict:
-    """An epoch is a single pass over the entire time interval covered by the data. One interval between stock data
-    points (``stock_range``) is defined as a batch.
 
-    Each batch is processed in the following way: given an initial and final stock data point, the model learns to
-    interpolate flows between the two in such a way that stock and net migration values match. After a certain number of
-    steps (``batch_size``), a gradient descent step is made on the neural network parameters. Performing a step only
-    after a full pass over the entire dataset is called 'batch gradient descent', performing a step after every
-    batch is called 'stochastic gradient descent'.
+    """
+    Execute a complete training epoch over all time batches.
 
-    Since the flow table is very large, memory might not be sufficient to optimise the predictions on all the edges
-    at the same time. For this reason, we compute gradients on a random subsample of edges (``sample_size`` ) --
-    the random subsample changes for every time frame t, so over the entire batch and many epochs all edges
-    will be optimised.
+    An epoch processes the entire temporal sequence, divided into batches by
+    stock measurement intervals. Each batch is processed sequentially, with
+    gradient accumulation and periodic optimization steps.
 
-    :param: training_data_dict: a dictionary containing the (transformed) target net migration, stock, and flow data,
-        as well as their means, stds, and transformation parameters. The structure of each entry is:
+    The epoch:
+    - Processes all batches in temporal order
+    - Maintains hidden state continuity across batches
+    - Accumulates gradients and performs optimization every BATCH_SIZE batches
+    - Tracks prediction errors and test performance
 
-        ```
-        stock:
-            - transformed_data: ...
-            - mean: ...
-            - std: ...
-            - transformation_params:
-                - lmbda: ...
-                - other kwargs, passed to `yeo_johnson_transform`
-        ```
-    :param epoch_init_stock: the initial value of the stocks. This is used to start the recurrent process and is
-        adjusted over time
-    :return: dictionary of losses and prediction errors
+    Parameters
+    ----------
+    epoch_init_stock : torch.Tensor
+        Initial stock matrix [N, N] for the first year of the training period
+
+    Returns
+    -------
+    dict
+        Dictionary containing epoch-averaged metrics with structure:
+        {
+            'prediction': {
+                'stock': average stock prediction error,
+                'net_migration': average net migration error,
+                'flow': average flow error,
+                'outflow': average outflow constraint violation
+            },
+            'loss': {
+                'stock': average stock loss,
+                'net_migration': average net migration loss,
+                'flow': average flow loss,
+                'outflow': average outflow constraint loss
+            },
+            'test': {
+                'flow': average test set flow error
+            }
+        }
     """
 
 

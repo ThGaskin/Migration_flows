@@ -30,5 +30,5 @@ style = {"text.usetex": False, "mathtext.fontset": "cm", "font.family": ["Garamo
          "axes.spines.right": False, "figure.subplot.left": 0, "figure.subplot.right": 1, "figure.subplot.bottom": 0,
          "figure.subplot.top": 1, "legend.facecolor": (1, 1, 1, 0.1), "figure.frameon": False,
          'axes.prop_cycle': cycler(color=list(colors.values())), 'patch.edgecolor': 'none', 'savefig.dpi': 400,
-         "legend.handlelength": 1, "legend.framealpha": 0,}
+         "legend.handlelength": 1, "legend.framealpha": 0, "axes.formatter.use_mathtext": True}
 

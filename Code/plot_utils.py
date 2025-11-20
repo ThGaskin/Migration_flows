@@ -238,24 +238,27 @@ def scatter_relative_errs(x: xr.DataArray, y: xr.DataArray, ax, *, cm: ColorMana
     _y_plot = y.data.flatten()[_msk]
     ax.scatter(_x_plot, _y_plot, c=abs(_x_plot-_y_plot)/(_x_plot+1), cmap=cm.cmap, norm=cm.norm, **plot_kwargs)
 
-def plot_flow_data(ax, items: dict, *, o: str, d: str) -> dict:
+def plot_flow_data(ax, items: dict, *, o: str, d: str, scale: float = 1.0) -> dict:
     """ Plot flow data to an axis for a given origin-destination pair
 
     :param ax: axis on which to plot data
     :param items: dictionary of datasets, colours, and labels
     :param o: origin ISO
     :param d: destination ISO
+    :param scale: scale to use for plotting (default is None)
     :return: handles: dictionary of labels and handles to use in a legend
     """
     handles = {}
     for label, item in items.items():
         if o not in item['data'].coords['Origin ISO'] or d not in item['data'].coords['Destination ISO']:
             continue
-        ds = item['data'].sel({"Origin ISO": o, "Destination ISO": d}, drop=True).dropna('Year')
+        ds = item['data'].sel({"Origin ISO": o, "Destination ISO": d}, drop=True).dropna('Year') * scale
         if len(ds) == 0:
                 continue
         if not 'lower' in item.keys():
-            handles[label] = ds.plot.scatter(ax=ax, s=item['s'], marker=item['marker'], color=item['primary_color'], lw=item.get('lw', 0), ec=item.get('ec', None))
+            handles[label] = ds.plot.scatter(ax=ax, s=item['s'], marker=item['marker'],
+                                             color=item['primary_color'], lw=item.get('lw', 0),
+                                             ec=item.get('ec', None))
         else:
             lower, upper = ds[item['lower']].dropna('Year'), ds[item['upper']].dropna('Year')
             ebar = ax.fill_between(

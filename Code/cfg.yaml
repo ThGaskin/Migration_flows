@@ -1,5 +1,5 @@
 # Path configuration
-BASE_PATH:  "." #
+BASE_PATH:  ~/Projects/Migration_flows
 device: 'mps'
 path_note: ~ # Note added to out path
 dry_run: True # Do not save
@@ -67,9 +67,25 @@ Data_loading:
         path: 'input_covariates/EU'
         idx: [i, j, k]
 
+  # Target data sources: modify the target data sources you want to use different datasets.
+  # They need to be located in the same 'data_path'.
+  targets:
+    net_migration: 'net_migration'
+    net_migration_mask: 'net_migration_mask'
+    net_migration_weights: 'net_migration_weights'
+    stocks: 'stock'
+    stock_diff: 'stock_diff'
+    stock_diff_mask: 'stock_diff_mask'
+    stock_diff_weights: 'stock_diff_weights'
+    stock_range: 'stock_range'
+    flow: 'flow'
+    flow_mask: 'flow_mask_noQSFN'
+    flow_weights: 'flow_weights'
+
+
 # Neural network settings
 NeuralNet:
-  num_layers: 5
+  num_layers: 3
   nodes_per_layer:
     default: 20
   activation_funcs:
@@ -82,7 +98,7 @@ NeuralNet:
     default: [-1, 1]
   learning_rate: 0.002
   optimizer: Adam
-  latent_space_dim: 5
+  latent_space_dim: 10
 
 # Training settings
 Training:
@@ -91,6 +107,8 @@ Training:
   N_epochs: 10
   Random_sample_size: 1000
   Batch_size: 7
+
+  # Frequency at which to write out the neural network and loss
   write_every: 10
 
   # Fraction of flow corridors to mask for testing
@@ -108,7 +126,8 @@ Training:
     flow:
       lmbda: 0.5
 
-  # Confidence bands within which we do not penalise
+  # Confidence bands within which we do not penalise estimates; these are relative values, and can help reduce
+  # overfitting
   Confidence_band:
     stock: 0.01
     net_migration: 0.01

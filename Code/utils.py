@@ -50,7 +50,7 @@ def yeo_johnson_transform(data: Union[torch.Tensor, np.ndarray],
         # Vectorised Yeo-Johnson transform for pytorch tensors
         mask_pos = data >= 0
         mask_neg = ~mask_pos
-        res = torch.nan * torch.zeros_like(data)
+        res = torch.zeros_like(data)
 
         # Handle positive values
         if lmbda != 0:
@@ -60,12 +60,17 @@ def yeo_johnson_transform(data: Union[torch.Tensor, np.ndarray],
 
         # Handle negative values
         if flip_negative_values:
-            res[mask_neg] = -yeo_johnson_transform(-data[mask_neg], lmbda, flip_negative_values=False)
+            neg_data = -data[mask_neg]
+            if lmbda != 0:
+                res[mask_neg] = -(torch.pow(neg_data + 1, lmbda) - 1) / lmbda
+            else:
+                res[mask_neg] = -torch.log(neg_data + 1)
         else:
             if lmbda != 2:
-                res[mask_neg] = - (torch.pow(-data[mask_neg] + 1, 2 - lmbda) - 1) / (2 - lmbda)
+                res[mask_neg] = -(torch.pow(-data[mask_neg] + 1, 2 - lmbda) - 1) / (2 - lmbda)
             else:
                 res[mask_neg] = -torch.log(-data[mask_neg] + 1)
+
     if mean is None and standardize:
         mean = torch.nanmean(res)
     if std is None and standardize:
@@ -277,6 +282,7 @@ def generate_predictions(NN: NeuralNet, *,
                          scaling_factor: Union[torch.Tensor, float] = 1000.,
                          death_rate: torch.Tensor,
                          total_births: torch.Tensor,
+                         apply_tanh_to_latent_space: bool = False,
                          **__
                          ) -> dict:
     """Generates predictions using a neural network
@@ -320,10 +326,14 @@ def generate_predictions(NN: NeuralNet, *,
         # Append latent state to neural network input
         if NN.output_dim > 1:
             _input_data = torch.cat([_input_data, h_t], dim=1)
-            res = NN(_input_data).detach()
+            with torch.no_grad():
+                res = NN(_input_data)
             log_flow, h_t = res[:, 0], res[:, 1:]
+            if apply_tanh_to_latent_space:
+                h_t = h_t.tanh()
         else:
-            log_flow = NN(_input_data).detach().flatten()
+            with torch.no_grad():
+                log_flow = NN(_input_data).flatten()
         T_pred[y, idx_i, idx_j, idx_k] = scaling_factor * torch.exp(log_flow)
 
         # Update the stock predictions
@@ -338,8 +348,11 @@ def generate_predictions(NN: NeuralNet, *,
     flow_predictions = T_pred.sum(dim=1)
     net_migration_predictions = flow_predictions.sum(dim=1) - flow_predictions.sum(dim=2)
 
-    return dict(T_pred=T_pred, S_pred=stock_predictions, mu_pred=net_migration_predictions,
-                F_pred=flow_predictions, NN=NN)
+    return dict(T_pred=T_pred,
+                S_pred=stock_predictions,
+                mu_pred=net_migration_predictions,
+                F_pred=flow_predictions,
+                NN=NN)
 
 
 def get_predictions(dir: str, *,
@@ -351,6 +364,7 @@ def get_predictions(dir: str, *,
                     transformation_parameters: dict,
                     device: str = 'cpu',
                     show_pbar: bool = True,
+                    apply_tanh_to_latent_space: bool = False,
                     **__
                     ) -> dict:
     """ Loads a neural network and uses it to generate predictions.
@@ -384,11 +398,17 @@ def get_predictions(dir: str, *,
     NN.load_state_dict(weights)
     NN.eval()
 
-    return generate_predictions(NN, input_data=input_data, edge_indices=edge_indices, S_0=S_0,
+    return generate_predictions(NN,
+                                input_data=input_data,
+                                edge_indices=edge_indices,
+                                S_0=S_0,
                                 total_births=total_births,
-                                death_rate=death_rate, transformation_parameters=transformation_parameters,
+                                death_rate=death_rate,
+                                transformation_parameters=transformation_parameters,
                                 device=device,
-                                show_pbar=show_pbar, scaling_factor=nn_cfg['Data_loading']['data_rescale'])
+                                show_pbar=show_pbar,
+                                scaling_factor=nn_cfg['Data_loading']['data_rescale'],
+                                apply_tanh_to_latent_space=apply_tanh_to_latent_space)
 
 
 def convert_tensor_predictions_to_xarray(*,
