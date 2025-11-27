@@ -121,13 +121,14 @@ def comparison_stats(F, population) -> xr.DataArray:
     return xr.concat([corr, log_corr, prop, mig_rate], dim='Metric')
 
 def plot_grid_to_ax(
-        data: np.ndarray, ax, *, cm: ColorManager
+        data: np.ndarray, ax, *, cm: ColorManager, mark_max: bool = True
 ):
     """ Plots a single grid to an axis. Labels are added to each cell and the highest value is highlighted.
 
     :param data: Panel data of evaluation metrics.
     :param ax: axis to use
     :param cm: ColorManager to use
+    :param mark_max: whether to highlight the best value in each column
     :return: image data
     """
 
@@ -139,7 +140,7 @@ def plot_grid_to_ax(
     for i in range(data.shape[0]):
         for j in range(data.shape[1]):
             value = f"{data[i, j]:.2f}"
-            if data[i, j] == max_values[j]:  # If this is the max in the column
+            if data[i, j] == max_values[j] and mark_max:  # If this is the max in the column
                 ax.text(j, i, value, ha='center', va='center', weight='bold')
             else:
                 ax.text(j, i, value, ha='center', va='center')
@@ -150,7 +151,7 @@ def plot_grid_to_ax(
     return im
 
 
-def plot_eval_metrics(stats, fig, axs, *, cm: ColorManager):
+def plot_eval_metrics(stats, fig, axs, *, cm: ColorManager, mark_max: bool = True, add_cbar: bool = False):
     """ Plots evaluation metrics from a xr.DataArray of dimensions (Method, Collection, Metric) to a facet_grid.
 
     :param stats: xr.DataArray of statistical metrics
@@ -169,25 +170,41 @@ def plot_eval_metrics(stats, fig, axs, *, cm: ColorManager):
         'sd_rev_neg': 'Stock Difference \n Reverse Negative'
     }
 
+    collection_names = {
+        "eurostat":"Eurostat",
+        "un_desa_imfsc":"UN DESA IMFSC 2015",
+        "un_desa_wpp":"WPP \n 2024",
+        "demig_c2c":"DEMIG C2C",
+        "demig_tot": "DEMIG TOTAL",
+        "ipums": "IPUMS\nInternational",
+        "celede":"UN CEPAL IMILA",
+        "ilo_asean": "ILO ASEAN",
+        "oecd":"OECD"
+    }
+
     for idx, collection in enumerate(stats.coords['Collection'].data):
 
         # Plot grid data to axis
-        im = plot_grid_to_ax(stats.sel({"Collection": collection}).data.T, axs[idx], cm=cm)
+        s = stats.sel({"Collection": collection}).dropna('Metric', how='all')
+        im = plot_grid_to_ax(s.data.T, axs[idx], cm=cm, mark_max=mark_max)
 
         # Add title and tick labels
-        axs[idx].set_title(collection)
-        axs[idx].set_xticks(np.arange(len(stats.coords['Metric'])), stats.coords['Metric'].data, rotation=45, ha='right')
+        axs[idx].set_title(collection_names.get(collection, collection))
+        axs[idx].set_xticks(np.arange(len(s.coords['Metric'])), s.coords['Metric'].data, rotation=45, ha='right')
 
     axs[0].set_yticks(np.arange(len(stats.coords['Method'].data)), [method_names.get(name, name) for name in stats.coords['Method'].data],
                       linespacing=0.8)
 
     # Add colourbar
-    fig.subplots_adjust(right=0.99)
-    c_ax = fig.add_axes([1, 0, 0.02, 1])
-    cbar = fig.colorbar(im, c_ax, label='Correlation')
-    cbar.outline.set_edgecolor(colors['c_darkgrey'])
-    cbar.outline.set_linewidth(0.5)
-    fig.subplots_adjust(wspace=0.03)
+    if add_cbar:
+        fig.subplots_adjust(right=0.99)
+        c_ax = fig.add_axes([1, 0, 0.02, 1])
+        cbar = fig.colorbar(im, c_ax, label='Correlation')
+        cbar.outline.set_edgecolor(colors['c_darkgrey'])
+        cbar.outline.set_linewidth(0.5)
+        fig.subplots_adjust(wspace=0.03)
+        return im, cbar
+    return im,
 
 def correlation_violin(ax, *, items, pred, mask, **plot_kwargs):
     """ Violinplot of correlations on the test and training data on various datasets.

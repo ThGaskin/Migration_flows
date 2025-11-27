@@ -59,7 +59,7 @@ Data_loading:
         idx: [[i, j], [i, k]]
     - Refugees_diff:
         path: 'input_covariates/Refugees_diff'
-        idx: [[i, j], [i, k]]
+        idx: [ [ i, j ], [ i, k ] ]
     - Colonial_ties:
         path: 'input_covariates/Colonial_ties'
         idx: [[i, k], [j, k]]
@@ -85,11 +85,11 @@ Data_loading:
 
 # Neural network settings
 NeuralNet:
-  num_layers: 3
+  num_layers: 7
   nodes_per_layer:
-    default: 20
+    default: 60
   activation_funcs:
-    default: softplus
+    default: tanh
     layer_specific:
       -1:
         name: celu
@@ -98,7 +98,7 @@ NeuralNet:
     default: [-1, 1]
   learning_rate: 0.002
   optimizer: Adam
-  latent_space_dim: 10
+  latent_space_dim: 100
 
 # Training settings
 Training:

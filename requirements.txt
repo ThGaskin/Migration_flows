@@ -10,7 +10,6 @@ matplotlib
 scipy
 Cartopy
 geopandas
-fuzzywuzzy
 bleach
 PyYAML
 notebook

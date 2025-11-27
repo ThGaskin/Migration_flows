@@ -4,3 +4,8 @@
 .Rhistory
 .RData
 .Ruserdata
+__pycache__
+
+Estimates/T.nc
+Images/*
+!Images/Github/

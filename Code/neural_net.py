@@ -1,7 +1,61 @@
-from typing import Any, List, Union
-
+from typing import Any, List, Union, Tuple, Optional
 import torch
 from torch import nn
+
+"""Pytorch activation functions."""
+# Pairs of activation functions and whether they are part of the torch.nn module, in which case they must be called
+# via func(*args, **kwargs)(x).
+def sigmoid(alpha=torch.tensor(1.0), beta=torch.tensor(1.0), gamma=torch.tensor(0.0), delta=torch.tensor(0.0)):
+    """Extends the torch.nn.sigmoid activation function by allowing for a scale and slope parameter."""
+
+    return lambda x: alpha * torch.sigmoid(beta * (x-delta)) + gamma
+
+ACTIVATION_FUNCS = {
+    "abs": [torch.abs, False],
+    "celu": [torch.nn.CELU, True],
+    "cos": [torch.cos, False],
+    "cosine": [torch.cos, False],
+    "elu": [torch.nn.ELU, True],
+    "gelu": [torch.nn.GELU, True],
+    "hardshrink": [torch.nn.Hardshrink, True],
+    "hardsigmoid": [torch.nn.Hardsigmoid, True],
+    "hardswish": [torch.nn.Hardswish, True],
+    "hardtanh": [torch.nn.Hardtanh, True],
+    "leakyrelu": [torch.nn.LeakyReLU, True],
+    "linear": [None, False],
+    "logsigmoid": [torch.nn.LogSigmoid, True],
+    "mish": [torch.nn.Mish, True],
+    "prelu": [torch.nn.PReLU, True],
+    "relu": [torch.nn.ReLU, True],
+    "rrelu": [torch.nn.RReLU, True],
+    "selu": [torch.nn.SELU, True],
+    "sigmoid": [sigmoid, True],
+    "silu": [torch.nn.SiLU, True],
+    "sin": [torch.sin, False],
+    "sine": [torch.sin, False],
+    "softplus": [torch.nn.Softplus, True],
+    "softshrink": [torch.nn.Softshrink, True],
+    "swish": [torch.nn.SiLU, True],
+    "tanh": [torch.nn.Tanh, True],
+    "tanhshrink": [torch.nn.Tanhshrink, True],
+    "threshold": [torch.nn.Threshold, True],
+}
+
+"""Pytorch optimisers"""
+OPTIMIZERS = {
+    "Adagrad": torch.optim.Adagrad,
+    "Adam": torch.optim.Adam,
+    "AdamW": torch.optim.AdamW,
+    "SparseAdam": torch.optim.SparseAdam,
+    "Adamax": torch.optim.Adamax,
+    "ASGD": torch.optim.ASGD,
+    "LBFGS": torch.optim.LBFGS,
+    "NAdam": torch.optim.NAdam,
+    "RAdam": torch.optim.RAdam,
+    "RMSprop": torch.optim.RMSprop,
+    "Rprop": torch.optim.Rprop,
+    "SGD": torch.optim.SGD
+}
 
 def random_tensor(
     cfg: Union[dict, list], *, size: tuple = None, device: str, **__
@@ -84,51 +138,6 @@ def random_tensor(
 # ----------------------------------------------------------------------------------------------------------------------
 # -- NN utility functions ----------------------------------------------------------------------------------------------
 # ----------------------------------------------------------------------------------------------------------------------
-
-
-def sigmoid(alpha=torch.tensor(1.0), beta=torch.tensor(1.0), gamma=torch.tensor(0.0), delta=torch.tensor(0.0)):
-    """Extends the torch.nn.sigmoid activation function by allowing for a scale and slope parameter."""
-
-    return lambda x: alpha * torch.sigmoid(beta * (x-delta)) + gamma
-
-
-# Pytorch activation functions.
-# Pairs of activation functions and whether they are part of the torch.nn module, in which case they must be called
-# via func(*args, **kwargs)(x).
-
-
-ACTIVATION_FUNCS = {
-    "abs": [torch.abs, False],
-    "celu": [torch.nn.CELU, True],
-    "cos": [torch.cos, False],
-    "cosine": [torch.cos, False],
-    "elu": [torch.nn.ELU, True],
-    "gelu": [torch.nn.GELU, True],
-    "hardshrink": [torch.nn.Hardshrink, True],
-    "hardsigmoid": [torch.nn.Hardsigmoid, True],
-    "hardswish": [torch.nn.Hardswish, True],
-    "hardtanh": [torch.nn.Hardtanh, True],
-    "leakyrelu": [torch.nn.LeakyReLU, True],
-    "linear": [None, False],
-    "logsigmoid": [torch.nn.LogSigmoid, True],
-    "mish": [torch.nn.Mish, True],
-    "prelu": [torch.nn.PReLU, True],
-    "relu": [torch.nn.ReLU, True],
-    "rrelu": [torch.nn.RReLU, True],
-    "selu": [torch.nn.SELU, True],
-    "sigmoid": [sigmoid, True],
-    "silu": [torch.nn.SiLU, True],
-    "sin": [torch.sin, False],
-    "sine": [torch.sin, False],
-    "softplus": [torch.nn.Softplus, True],
-    "softshrink": [torch.nn.Softshrink, True],
-    "swish": [torch.nn.SiLU, True],
-    "tanh": [torch.nn.Tanh, True],
-    "tanhshrink": [torch.nn.Tanhshrink, True],
-    "threshold": [torch.nn.Threshold, True],
-}
-
-
 def get_architecture(
     input_size: int, output_size: int, n_layers: int, cfg: dict
 ) -> List[int]:
@@ -224,28 +233,11 @@ def get_bias(n_layers: int, cfg: dict) -> List[Any]:
         biases[layer_id] = layer_bias
 
     return biases
-
-
-# -----------------------------------------------------------------------------
-# -- Neural net class ---------------------------------------------------------
-# -----------------------------------------------------------------------------
-
-
+   
+# ----------------------------------------------------------------------------------------------------------------------
+# -- Feed-forward neural network class ---------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
 class NeuralNet(nn.Module):
-    OPTIMIZERS = {
-        "Adagrad": torch.optim.Adagrad,
-        "Adam": torch.optim.Adam,
-        "AdamW": torch.optim.AdamW,
-        "SparseAdam": torch.optim.SparseAdam,
-        "Adamax": torch.optim.Adamax,
-        "ASGD": torch.optim.ASGD,
-        "LBFGS": torch.optim.LBFGS,
-        "NAdam": torch.optim.NAdam,
-        "RAdam": torch.optim.RAdam,
-        "RMSprop": torch.optim.RMSprop,
-        "Rprop": torch.optim.Rprop,
-        "SGD": torch.optim.SGD
-    }
 
     def __init__(
         self,
@@ -316,7 +308,7 @@ class NeuralNet(nn.Module):
             self.layers.append(layer)
 
         # Get the optimizer
-        self.optimizer = self.OPTIMIZERS[optimizer](
+        self.optimizer = OPTIMIZERS[optimizer](
             self.parameters(), **(optimizer_kwargs if optimizer_kwargs is not None else {})
         )
 
@@ -365,3 +357,532 @@ class NeuralNet(nn.Module):
             else:
                 x = self.activation_funcs[i](self.layers[i](x))
         return x
+
+# ----------------------------------------------------------------------------------------------------------------------
+# -- GRU class ---------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+class GRUNet(nn.Module):
+
+    def __init__(
+            self,
+            *,
+            input_size: int,
+            hidden_size: int,
+            num_layers: int = 1,
+            output_size: int = None,
+            dropout: float = 0.0,
+            bidirectional: bool = False,
+            batch_first: bool = True,
+            activation_funcs: dict = None,
+            biases: dict = None,
+            prior: Union[list, dict] = None,
+            prior_max_iter: int = 500,
+            prior_tol: float = 1e-5,
+            optimizer: str = "Adam",
+            optimizer_kwargs: dict = None,
+            device: str = 'cpu',
+            **__,
+    ):
+        """
+        Configurable GRU network.
+
+        :param input_size: Number of expected features in the input
+        :param hidden_size: Number of features in the hidden state
+        :param num_layers: Number of recurrent layers
+        :param output_size: Size of output layer (if None, uses hidden_size)
+        :param dropout: Dropout probability between GRU layers (except last layer)
+        :param bidirectional: If True, becomes bidirectional GRU
+        :param batch_first: If True, input shape is (batch, seq, feature) instead of (seq, batch, feature)
+        :param activation_funcs: Dictionary specifying activation functions for output layer
+        :param biases: Dictionary specifying bias initialization for output layer
+        :param prior: Initial prior distribution for output layer parameters
+        :param prior_tol: Tolerance for prior distribution matching
+        :param prior_max_iter: Maximum iterations for prior initialization
+        :param optimizer: Optimizer name
+        :param optimizer_kwargs: Optimizer keyword arguments
+        :param device: Device to run on
+        """
+        super().__init__()
+
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.output_size = output_size or hidden_size
+        self.bidirectional = bidirectional
+        self.batch_first = batch_first
+        self.device = device
+
+        # GRU layer
+        self.gru = nn.GRU(
+            input_size=input_size,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            dropout=dropout if num_layers > 1 else 0.0,
+            bidirectional=bidirectional,
+            batch_first=batch_first
+        )
+
+        # Output layer
+        gru_output_size = hidden_size * (2 if bidirectional else 1)
+
+        # Get activation function for output layer
+        if activation_funcs:
+            self.output_activation = get_activation_funcs(0, activation_funcs)[0]
+        else:
+            self.output_activation = None
+
+        # Output layer with bias configuration
+        self.output_layer = nn.Linear(gru_output_size, self.output_size, bias=True)
+
+        # Initialize output layer bias if specified
+        if biases and biases.get("default") is not None:
+            bias_cfg = biases["default"]
+            if bias_cfg != "default":
+                torch.nn.init.uniform_(self.output_layer.bias, bias_cfg[0], bias_cfg[1])
+
+        # Get optimizer
+        self.optimizer = OPTIMIZERS[optimizer](
+            self.parameters(),
+            **(optimizer_kwargs if optimizer_kwargs is not None else {})
+        )
+
+        # Initialize to prior if specified
+        self.prior_distribution = prior
+        if prior:
+            self.initialise_to_prior(tol=prior_tol, max_iter=prior_max_iter, device=device)
+
+    def initialise_to_prior(self, *, tol: float = 1e-5, max_iter: int = 500, device: str) -> None:
+        """Initialise the network to output values following a prior distribution."""
+        if self.prior_distribution is None:
+            return
+
+        # Draw target tensor from prior distribution
+        target = random_tensor(self.prior_distribution, size=(self.output_size,), device=device)
+
+        # Generate random input sequence
+        seq_len = 10  # arbitrary sequence length for initialization
+        if self.batch_first:
+            x = torch.randn(1, seq_len, self.input_size, device=device)
+        else:
+            x = torch.randn(seq_len, 1, self.input_size, device=device)
+
+        # Train to match prior
+        optim = torch.optim.Adam(self.parameters(), lr=0.002)
+        iter = 0
+
+        while iter < max_iter:
+            output = self.forward(x)
+            # Use the last output in the sequence
+            prediction = output[:, -1, :] if self.batch_first else output[-1, :, :]
+            prediction = prediction.squeeze()
+
+            loss = torch.nn.functional.mse_loss(target, prediction, reduction="sum")
+
+            if loss < tol:
+                break
+
+            loss.backward()
+            optim.step()
+            optim.zero_grad()
+            iter += 1
+
+    def forward(self, x, hidden=None):
+        """
+        Forward pass of the GRU.
+
+        :param x: Input tensor of shape (batch, seq, input_size) if batch_first=True
+                  or (seq, batch, input_size) if batch_first=False
+        :param hidden: Initial hidden state (optional)
+        :return: Output tensor and hidden state
+        """
+        # GRU forward pass
+        gru_out, hidden = self.gru(x, hidden)
+
+        # Apply output layer to each time step
+        if self.batch_first:
+            batch_size, seq_len, hidden_size = gru_out.size()
+            gru_out_reshaped = gru_out.contiguous().view(-1, hidden_size)
+            output = self.output_layer(gru_out_reshaped)
+            output = output.view(batch_size, seq_len, self.output_size)
+        else:
+            seq_len, batch_size, hidden_size = gru_out.size()
+            gru_out_reshaped = gru_out.contiguous().view(-1, hidden_size)
+            output = self.output_layer(gru_out_reshaped)
+            output = output.view(seq_len, batch_size, self.output_size)
+
+        # Apply activation function if specified
+        if self.output_activation is not None:
+            output = self.output_activation(output)
+
+        return output, hidden
+
+    def init_hidden(self, batch_size: int):
+        """Initialize hidden state."""
+        num_directions = 2 if self.bidirectional else 1
+        hidden = torch.zeros(
+            self.num_layers * num_directions,
+            batch_size,
+            self.hidden_size,
+            device=self.device
+        )
+        return hidden
+
+# ----------------------------------------------------------------------------------------------------------------------
+# -- LSTM class ---------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------------
+class LSTMNet(nn.Module):
+
+    def __init__(
+            self,
+            *,
+            input_size: int,
+            hidden_size: int,
+            num_layers: int = 1,
+            output_size: int = None,
+            dropout: float = 0.0,
+            bidirectional: bool = False,
+            batch_first: bool = True,
+            activation_funcs: dict = None,
+            biases: dict = None,
+            prior: Union[list, dict] = None,
+            prior_max_iter: int = 500,
+            prior_tol: float = 1e-5,
+            optimizer: str = "Adam",
+            optimizer_kwargs: dict = None,
+            device: str = 'cpu',
+            **__,
+    ):
+        """
+        Configurable LSTM network.
+
+        :param input_size: Number of expected features in the input
+        :param hidden_size: Number of features in the hidden state
+        :param num_layers: Number of recurrent layers
+        :param output_size: Size of output layer (if None, uses hidden_size)
+        :param dropout: Dropout probability between LSTM layers (except last layer)
+        :param bidirectional: If True, becomes bidirectional LSTM
+        :param batch_first: If True, input shape is (batch, seq, feature) instead of (seq, batch, feature)
+        :param activation_funcs: Dictionary specifying activation functions for output layer
+        :param biases: Dictionary specifying bias initialization for output layer
+        :param prior: Initial prior distribution for output layer parameters
+        :param prior_tol: Tolerance for prior distribution matching
+        :param prior_max_iter: Maximum iterations for prior initialization
+        :param optimizer: Optimizer name
+        :param optimizer_kwargs: Optimizer keyword arguments
+        :param device: Device to run on
+        """
+        super().__init__()
+
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.output_size = output_size or hidden_size
+        self.bidirectional = bidirectional
+        self.batch_first = batch_first
+        self.device = device
+
+        # LSTM layer
+        self.lstm = nn.LSTM(
+            input_size=input_size,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            dropout=dropout if num_layers > 1 else 0.0,
+            bidirectional=bidirectional,
+            batch_first=batch_first
+        )
+
+        # Output layer
+        lstm_output_size = hidden_size * (2 if bidirectional else 1)
+
+        # Get activation function for output layer
+        if activation_funcs:
+            self.output_activation = get_activation_funcs(0, activation_funcs)[0]
+        else:
+            self.output_activation = None
+
+        # Output layer with bias configuration
+        self.output_layer = nn.Linear(lstm_output_size, self.output_size, bias=True)
+
+        # Initialize output layer bias if specified
+        if biases and biases.get("default") is not None:
+            bias_cfg = biases["default"]
+            if bias_cfg != "default":
+                torch.nn.init.uniform_(self.output_layer.bias, bias_cfg[0], bias_cfg[1])
+
+        # Get optimizer
+        self.optimizer = OPTIMIZERS[optimizer](
+            self.parameters(),
+            **(optimizer_kwargs if optimizer_kwargs is not None else {})
+        )
+
+        # Initialize to prior if specified
+        self.prior_distribution = prior
+        if prior:
+            self.initialise_to_prior(tol=prior_tol, max_iter=prior_max_iter, device=device)
+
+    def initialise_to_prior(self, *, tol: float = 1e-5, max_iter: int = 500, device: str) -> None:
+        """Initialise the network to output values following a prior distribution."""
+        if self.prior_distribution is None:
+            return
+
+        # Draw target tensor from prior distribution
+        target = random_tensor(self.prior_distribution, size=(self.output_size,), device=device)
+
+        # Generate random input sequence
+        seq_len = 10  # arbitrary sequence length for initialization
+        if self.batch_first:
+            x = torch.randn(1, seq_len, self.input_size, device=device)
+        else:
+            x = torch.randn(seq_len, 1, self.input_size, device=device)
+
+        # Train to match prior
+        optim = torch.optim.Adam(self.parameters(), lr=0.002)
+        iter = 0
+
+        while iter < max_iter:
+            output = self.forward(x)
+            # Use the last output in the sequence
+            prediction = output[:, -1, :] if self.batch_first else output[-1, :, :]
+            prediction = prediction.squeeze()
+
+            loss = torch.nn.functional.mse_loss(target, prediction, reduction="sum")
+
+            if loss < tol:
+                break
+
+            loss.backward()
+            optim.step()
+            optim.zero_grad()
+            iter += 1
+
+    def forward(self, x: torch.Tensor, hidden: Optional[Tuple[torch.Tensor, torch.Tensor]] = None):
+        """
+        Forward pass of the LSTM.
+
+        :param x: Input tensor of shape (batch, seq, input_size) if batch_first=True
+                  or (seq, batch, input_size) if batch_first=False
+        :param hidden: Tuple of (hidden_state, cell_state) (optional)
+        :return: Output tensor and tuple (hidden_state, cell_state)
+        """
+        # LSTM forward pass
+        lstm_out, (hidden, cell) = self.lstm(x, hidden)
+
+        # Apply output layer to each time step
+        if self.batch_first:
+            batch_size, seq_len, hidden_size = lstm_out.size()
+            lstm_out_reshaped = lstm_out.contiguous().view(-1, hidden_size)
+            output = self.output_layer(lstm_out_reshaped)
+            output = output.view(batch_size, seq_len, self.output_size)
+        else:
+            seq_len, batch_size, hidden_size = lstm_out.size()
+            lstm_out_reshaped = lstm_out.contiguous().view(-1, hidden_size)
+            output = self.output_layer(lstm_out_reshaped)
+            output = output.view(seq_len, batch_size, self.output_size)
+
+        # Apply activation function if specified
+        if self.output_activation is not None:
+            output = self.output_activation(output)
+
+        return output, (hidden, cell)
+
+    def init_hidden(self, batch_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Initialize hidden state and cell state."""
+        num_directions = 2 if self.bidirectional else 1
+        hidden = torch.zeros(
+            self.num_layers * num_directions,
+            batch_size,
+            self.hidden_size,
+            device=self.device
+        )
+        cell = torch.zeros(
+            self.num_layers * num_directions,
+            batch_size,
+            self.hidden_size,
+            device=self.device
+        )
+        return hidden, cell
+
+
+class RNNNet(nn.Module):
+    OPTIMIZERS = {
+        "Adagrad": torch.optim.Adagrad,
+        "Adam": torch.optim.Adam,
+        "AdamW": torch.optim.AdamW,
+        "SparseAdam": torch.optim.SparseAdam,
+        "Adamax": torch.optim.Adamax,
+        "ASGD": torch.optim.ASGD,
+        "LBFGS": torch.optim.LBFGS,
+        "NAdam": torch.optim.NAdam,
+        "RAdam": torch.optim.RAdam,
+        "RMSprop": torch.optim.RMSprop,
+        "Rprop": torch.optim.Rprop,
+        "SGD": torch.optim.SGD
+    }
+
+    def __init__(
+            self,
+            *,
+            input_size: int,
+            hidden_size: int,
+            num_layers: int = 1,
+            output_size: int = None,
+            nonlinearity: str = 'tanh',  # 'tanh' or 'relu'
+            dropout: float = 0.0,
+            bidirectional: bool = False,
+            batch_first: bool = True,
+            activation_funcs: dict = None,
+            biases: dict = None,
+            prior: Union[list, dict] = None,
+            prior_max_iter: int = 500,
+            prior_tol: float = 1e-5,
+            optimizer: str = "Adam",
+            optimizer_kwargs: dict = None,
+            device: str = 'cpu',
+            **__,
+    ):
+        """
+        Configurable Vanilla RNN network.
+
+        :param input_size: Number of expected features in the input
+        :param hidden_size: Number of features in the hidden state
+        :param num_layers: Number of recurrent layers
+        :param output_size: Size of output layer (if None, uses hidden_size)
+        :param nonlinearity: Non-linearity to use. Can be 'tanh' or 'relu'
+        :param dropout: Dropout probability between RNN layers (except last layer)
+        :param bidirectional: If True, becomes bidirectional RNN
+        :param batch_first: If True, input shape is (batch, seq, feature) instead of (seq, batch, feature)
+        :param activation_funcs: Dictionary specifying activation functions for output layer
+        :param biases: Dictionary specifying bias initialization for output layer
+        :param prior: Initial prior distribution for output layer parameters
+        :param prior_tol: Tolerance for prior distribution matching
+        :param prior_max_iter: Maximum iterations for prior initialization
+        :param optimizer: Optimizer name
+        :param optimizer_kwargs: Optimizer keyword arguments
+        :param device: Device to run on
+        """
+        super().__init__()
+
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.output_size = output_size or hidden_size
+        self.nonlinearity = nonlinearity
+        self.bidirectional = bidirectional
+        self.batch_first = batch_first
+        self.device = device
+
+        # RNN layer
+        self.rnn = nn.RNN(
+            input_size=input_size,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            nonlinearity=nonlinearity,
+            dropout=dropout if num_layers > 1 else 0.0,
+            bidirectional=bidirectional,
+            batch_first=batch_first
+        )
+
+        # Output layer
+        rnn_output_size = hidden_size * (2 if bidirectional else 1)
+
+        # Get activation function for output layer
+        if activation_funcs:
+            self.output_activation = get_activation_funcs(0, activation_funcs)[0]
+        else:
+            self.output_activation = None
+
+        # Output layer with bias configuration
+        self.output_layer = nn.Linear(rnn_output_size, self.output_size, bias=True)
+
+        # Initialize output layer bias if specified
+        if biases and biases.get("default") is not None:
+            bias_cfg = biases["default"]
+            if bias_cfg != "default":
+                torch.nn.init.uniform_(self.output_layer.bias, bias_cfg[0], bias_cfg[1])
+
+        # Get optimizer
+        self.optimizer = OPTIMIZERS[optimizer](
+            self.parameters(),
+            **(optimizer_kwargs if optimizer_kwargs is not None else {})
+        )
+
+        # Initialize to prior if specified
+        self.prior_distribution = prior
+        if prior:
+            self.initialise_to_prior(tol=prior_tol, max_iter=prior_max_iter, device=device)
+
+    def initialise_to_prior(self, *, tol: float = 1e-5, max_iter: int = 500, device: str) -> None:
+        """Initialise the network to output values following a prior distribution."""
+        if self.prior_distribution is None:
+            return
+
+        # Draw target tensor from prior distribution
+        target = random_tensor(self.prior_distribution, size=(self.output_size,), device=device)
+
+        # Generate random input sequence
+        seq_len = 10  # arbitrary sequence length for initialization
+        if self.batch_first:
+            x = torch.randn(1, seq_len, self.input_size, device=device)
+        else:
+            x = torch.randn(seq_len, 1, self.input_size, device=device)
+
+        # Train to match prior
+        optim = torch.optim.Adam(self.parameters(), lr=0.002)
+        iter = 0
+
+        while iter < max_iter:
+            output = self.forward(x)
+            # Use the last output in the sequence
+            prediction = output[:, -1, :] if self.batch_first else output[-1, :, :]
+            prediction = prediction.squeeze()
+
+            loss = torch.nn.functional.mse_loss(target, prediction, reduction="sum")
+
+            if loss < tol:
+                break
+
+            loss.backward()
+            optim.step()
+            optim.zero_grad()
+            iter += 1
+
+    def forward(self, x: torch.Tensor, hidden: Optional[torch.Tensor] = None):
+        """
+        Forward pass of the RNN.
+
+        :param x: Input tensor of shape (batch, seq, input_size) if batch_first=True
+                  or (seq, batch, input_size) if batch_first=False
+        :param hidden: Initial hidden state (optional)
+        :return: Output tensor and hidden state
+        """
+        # RNN forward pass
+        rnn_out, hidden = self.rnn(x, hidden)
+
+        # Apply output layer to each time step
+        if self.batch_first:
+            batch_size, seq_len, hidden_size = rnn_out.size()
+            rnn_out_reshaped = rnn_out.contiguous().view(-1, hidden_size)
+            output = self.output_layer(rnn_out_reshaped)
+            output = output.view(batch_size, seq_len, self.output_size)
+        else:
+            seq_len, batch_size, hidden_size = rnn_out.size()
+            rnn_out_reshaped = rnn_out.contiguous().view(-1, hidden_size)
+            output = self.output_layer(rnn_out_reshaped)
+            output = output.view(seq_len, batch_size, self.output_size)
+
+        # Apply activation function if specified
+        if self.output_activation is not None:
+            output = self.output_activation(output)
+
+        return output, hidden
+
+    def init_hidden(self, batch_size: int) -> torch.Tensor:
+        """Initialize hidden state."""
+        num_directions = 2 if self.bidirectional else 1
+        hidden = torch.zeros(
+            self.num_layers * num_directions,
+            batch_size,
+            self.hidden_size,
+            device=self.device
+        )
+        return hidden
