@@ -13,19 +13,20 @@ from dantro.plot.utils import ColorManager
 from matplotlib.colorbar import Colorbar
 from ruamel.yaml import YAML
 from typing import Union
+from shapely.geometry import Point
+from matplotlib.patches import FancyArrowPatch
 
-
+# Local modules
 import sys
 from os.path import dirname as up
 from dantro._import_tools import import_module_from_path
 sys.path.append(up(__file__))
 Code = import_module_from_path(mod_path=up(__file__), mod_str="Code")
 Data = import_module_from_path(mod_path=up(__file__), mod_str="Data")
-from Code.plot_style import colors
+Plots = import_module_from_path(mod_path=up(__file__), mod_str="Plots")
+from Plots import colors
 from Data import world, lookup_table, coordinates
 
-from shapely.geometry import Point
-from matplotlib.patches import FancyArrowPatch
 
 yaml = YAML(typ='safe')
 

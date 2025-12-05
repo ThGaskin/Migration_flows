@@ -1,0 +1,23 @@
+## Modifications to the default Matplotlib rcParams
+text.usetex: False
+mathtext.fontset: cm
+font.family: serif
+text.latex.preamble: r"\usepackage{amssymb} \usepackage{amsmath}"
+grid.linewidth: 0.5
+savefig.bbox: tight
+savefig.transparent: True
+axes.grid: True
+axes.spines.top: False
+axes.spines.right: False
+figure.subplot.left: 0
+figure.subplot.right: 1
+figure.subplot.bottom: 0
+figure.subplot.top: 1
+legend.facecolor: (1, 1, 1, 0.1)
+figure.frameon: False
+axes.prop_cycle: cycler('color', ['2F7194','ec7070','48675A','97c3d0','AFD8BC','C6BFA2','EC9F7E','F5DDA9','3D4244','F8A6A6','A07CB0','AFC1B9'])
+patch.edgecolor: none
+savefig.dpi: 400
+legend.handlelength: 1
+legend.framealpha: 0
+axes.formatter.use_mathtext: True
