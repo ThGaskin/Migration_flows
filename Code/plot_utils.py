@@ -406,7 +406,14 @@ def plot_to_map(data, fig, patches, *, highlight_country: str = None, cbar_loc =
 
     # Add a colourbar
     if add_cbar:
-        cbar = add_cbar_to_map(fig, cm, cbar_loc=cbar_loc)
+        extend=None
+        if data.min()<cm.vmin and data.max()>cm.vmax:
+            extend='both'
+        elif data.min()<cm.vmin:
+            extend='min'
+        elif data.max()>cm.vmax:
+            extend='max'
+        cbar = add_cbar_to_map(fig, cm, cbar_loc=cbar_loc, extend=extend)
         return cm, cbar
     else:
         return cm, None

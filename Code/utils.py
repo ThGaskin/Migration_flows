@@ -299,7 +299,7 @@ def generate_predictions(NN: NeuralNet, *,
     :return: dictionary containing the predictions
     """
 
-    # Edge indicies
+    # Edge indices
     idx_i, idx_j, idx_k = edge_indices
 
     # Initialise the hidden state
