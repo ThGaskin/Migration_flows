@@ -18,11 +18,11 @@
 # ----------------------------------------------------------------------------------------------------------------------
 # Imports
 # ----------------------------------------------------------------------------------------------------------------------
+import argparse
 import datetime
 import numpy as np
 import os
 import pickle
-import sys
 import time
 import torch
 
@@ -33,15 +33,36 @@ from Code import yeo_johnson_transform, build_input
 
 yaml = YAML(typ="safe")
 
-# Load the configuration, with the option of passing a config path
-if len(sys.argv) > 1:
-    with open(sys.argv[1], "r") as file:
+# Set up argument parser
+parser = argparse.ArgumentParser(description='Modifies the base configuration')
+parser.add_argument('config', nargs='?', help='Path to config file')
+parser.add_argument('--note', help='Modify the path description')
+parser.add_argument('--load_dir', help='Override the load directory in config')
+parser.add_argument('--out_dir', help='Override the default output directory in config')
+parser.add_argument('--N_epochs', help='Set the number of epochs')
+
+# Parse arguments
+args = parser.parse_args()
+
+# Load the configuration
+if args.config:
+    with open(args.config, "r") as file:
         cfg = yaml.load(file)
 else:
     from pathlib import Path
     config_path = Path(__file__).parent / "cfg.yaml"
     with open(config_path, "r") as file:
         cfg = yaml.load(file)
+
+# Override config values with command line arguments if provided
+if args.note:
+    cfg['path_note'] = args.note
+if args.load_dir:
+    cfg["Data_loading"]["load_from_dir"] = args.load_dir
+if args.out_dir:
+    cfg['OUT_DIR'] = args.out_dir
+if args.N_epochs:
+    cfg['Training']['N_epochs'] = args.N_epochs
 
 # Set default device
 device = cfg["device"]
@@ -748,7 +769,7 @@ def epoch(epoch_init_stock) -> dict:
             Flow, FlowTestMask
         )
         )).mean()
-    )
+    ) if FlowTestMask.any() else dict(flow=torch.tensor(torch.nan))
 
     return epoch_loss_dict
 
@@ -790,7 +811,7 @@ e0 = LossDict['epoch'][-1]+1 if LossDict['epoch'] else 1
 # Initial value of stocks
 InitStock = Stock[0]
 
-for ep in range(e0, N_EPOCHS + e0):
+for ep in range(e0, N_EPOCHS + 1):
 
     # Run the epoch and track the compute time
     t0 = time.time()
@@ -807,7 +828,10 @@ for ep in range(e0, N_EPOCHS + e0):
             LossDict[key][sub_key].append(_l[key][sub_key].cpu().numpy())
 
     # Print the table
-    _ep_str = f"{LossDict['epoch'][-1]:<10d}"
+    if ep % WRITE_EVERY == 0 or ep == N_EPOCHS:
+        _ep_str = f"*{LossDict['epoch'][-1]:<9d}"
+    else:
+        _ep_str = f"{LossDict['epoch'][-1]:<10d}"
     print(
         f"{_ep_str}|"
         f"{LossDict['prediction']['stock'][-1]:<14.4f} | "
@@ -823,7 +847,7 @@ for ep in range(e0, N_EPOCHS + e0):
     )
 
     # Save trained model, initial hidden state (stock), and loss by components
-    if not dry_run and (ep % WRITE_EVERY == 0 or (ep-e0) == N_EPOCHS - 1):
+    if not dry_run and (ep % WRITE_EVERY == 0 or ep == N_EPOCHS):
         torch.save(NN.state_dict(), f"{save_to_path}/model_trained.pt")
         torch.save(NN.optimizer.state_dict(), f"{save_to_path}/optim.pt")
         with open(f"{save_to_path}/loss_dict.pickle", "wb") as file:
