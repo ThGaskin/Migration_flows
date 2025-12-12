@@ -7,9 +7,6 @@ Deep learning-based estimates of global migration flows
 [![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 
-> [!NOTE]
-> We recommend using Python 3.11: this way progress bars in Jupyter notebooks will be correctly displayed.
-
 This repository contains all code and data needed to train and evaluate a deep neural network 
 used to infer annual bilateral migration flows between all countries since 1990. If you have downloaded the datasets (in particular the `T.nc` flow table) from
 the [Zenodo repository](https://zenodo.org/records/15623215), you can directly evaluate the data from there. The `Evaluate.ipynb` notebook will guide you through the evaluation 
@@ -18,9 +15,24 @@ process step-by-step (see below) and allow you to recreate all the plots from th
 > [!NOTE]
 > This repository is work in progress and is still being updated. `git fetch & git pull` regularly for updates. If you encounter any problems, please [file an issue](https://github.com/ThGaskin/Migration_flows/issues/new).
 
-> [!NOTE]
-> Smaller datasets are stored in this repository in the `Estimates` folder. 
-> See the [Zenodo repository](https://zenodo.org/records/15623215) for all datasets, including the full flow table.
+## Obtaining the data
+All data is hosted at [Huggingface](https://huggingface.co/datasets/ThGaskin/Migration_flows/tree/main), including the 
+input covariates, migration flow estimates, and trained neural networks. To pull this data and start evaluating the results, 
+follow these steps:
+
+To obtain the data, we recommend using the 
+[huggingface CLI](https://huggingface.co/docs/huggingface_hub/en/guides/cli) to download all the data:
+```commandline
+curl -LsSf https://hf.co/cli/install.sh | bash
+```
+Then, login using your access token:
+```commandline
+hf auth login
+```
+Finally, download the data into the `data/` folder:
+```commandline
+hf download ThGaskin/OT_Trade --repo-type=dataset --local-dir data
+```
 
 > [!WARNING]
 > The full flow table `T.nc` is quite large — around 3GB! Make sure you have enough system memory to load it. 
@@ -29,7 +41,7 @@ process step-by-step (see below) and allow you to recreate all the plots from th
 
 
 ## Estimates
-If you only want to open and analyse the data, the `Estimates` folder in this repository contains:
+If you only want to open and analyse the data, the `Estimates` folder contains:
 - A file `flows.nc`: total origin-destination flows
 - A file `stocks.nc`: migrant stocks, including native-born stocks on the diagonal
 - A file `net_migration.nc`: net migration estimates

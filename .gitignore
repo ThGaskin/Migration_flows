@@ -6,6 +6,7 @@
 .Ruserdata
 __pycache__
 
-Estimates/T.nc
+Estimates/*
+Data/*
 Images/*
 !Images/Github/
