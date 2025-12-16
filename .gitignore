@@ -6,7 +6,8 @@
 .Ruserdata
 __pycache__
 
-Estimates/*
-Data/*
+Estimates
+Trained_networks
+Data
 Images/*
 !Images/Github/

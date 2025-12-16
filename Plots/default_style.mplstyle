@@ -7,6 +7,11 @@ grid.linewidth: 0.5
 savefig.bbox: tight
 savefig.transparent: True
 axes.grid: True
+axes.edgecolor: "#b0b0b0"
+ytick.color: "#b0b0b0"
+xtick.color: "#b0b0b0"
+ytick.labelcolor: black
+xtick.labelcolor: black
 axes.spines.top: False
 axes.spines.right: False
 figure.subplot.left: 0
@@ -21,3 +26,4 @@ savefig.dpi: 400
 legend.handlelength: 1
 legend.framealpha: 0
 axes.formatter.use_mathtext: True
+axes.axisbelow: True

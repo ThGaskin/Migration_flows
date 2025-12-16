@@ -1,6 +1,7 @@
 # Path configuration
-BASE_PATH:  ~/Projects/Migration_flows
-device: 'mps'
+BASE_PATH:  ~/Projects/Migration/Migration_flows
+OUT_DIR: 'Results'
+device: 'cpu' # Set to 'cuda' or 'mps' for GPU support
 path_note: ~ # Note added to out path
 dry_run: True # Do not save
 
@@ -57,9 +58,6 @@ Data_loading:
     - Refugees:
         path: 'input_covariates/Refugees'
         idx: [[i, j], [i, k]]
-    - Refugees_diff:
-        path: 'input_covariates/Refugees_diff'
-        idx: [ [ i, j ], [ i, k ] ]
     - Colonial_ties:
         path: 'input_covariates/Colonial_ties'
         idx: [[i, k], [j, k]]
@@ -79,7 +77,7 @@ Data_loading:
     stock_diff_weights: 'stock_diff_weights'
     stock_range: 'stock_range'
     flow: 'flow'
-    flow_mask: 'flow_mask_noQSFN'
+    flow_mask: 'flow_mask'
     flow_weights: 'flow_weights'
 
 
@@ -112,10 +110,10 @@ Training:
   write_every: 10
 
   # Fraction of flow corridors to mask for testing
-  flow_test_frac: 0.2
+  flow_test_frac: 0.0
 
   # Gradient norm clipping
-  clip_grad_norm: False
+  clip_grad_norm: 1.0
 
   # Rescaling lambdas for the Yeo-Johnson transforms
   Rescaling:
@@ -138,4 +136,4 @@ Training:
     stock: 1
     flow: 1
     net_migration: 1
-    regulariser: 0
+    regulariser: 1

@@ -6,6 +6,7 @@ seaborn
 tqdm
 xarray
 dantro
+huggingface-hub
 matplotlib
 scipy
 Cartopy

@@ -29,9 +29,9 @@ Then, login using your access token:
 ```commandline
 hf auth login
 ```
-Finally, download the data into the `data/` folder:
+Finally, download the data into this folder:
 ```commandline
-hf download ThGaskin/OT_Trade --repo-type=dataset --local-dir data
+hf download ThGaskin/Migration_flows --repo-type=dataset
 ```
 
 > [!WARNING]

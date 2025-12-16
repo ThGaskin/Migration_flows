@@ -6,7 +6,7 @@ import torch
 import tqdm
 import xarray as xr
 from ruamel.yaml import YAML
-from typing import Union
+from typing import Any, Tuple, Union
 
 yaml = YAML(typ='safe')
 
@@ -272,21 +272,55 @@ def load_training_data(dir, cfg, *, device: str = 'cpu') -> dict:
     return res
 
 
-def generate_predictions(NN: NeuralNet, *,
+def get_NN(dir: str, *, device: str = 'cpu') -> Tuple[NeuralNet, dict]:
+
+    """ Builds and loads a neural network from a directory.
+    :param dir: directory from which to load the neural network
+    :param device: torch.device on to which to load the neural network
+    :return: neural network and configuration tuple
+    """
+    with open(f"{dir}/cfg.yaml", "r") as file:
+        nn_cfg = yaml.load(file)
+
+    # Load the neural network weights
+    weights = torch.load(f"{dir}/model_trained.pt", weights_only=True, map_location=torch.device(device))
+
+    # Set up the neural network.
+    NN = NeuralNet(
+        input_size=weights['layers.0.weight'].shape[1],
+        output_size=weights[
+            max([s for s in list(weights.keys()) if s.endswith('.weight')], key=lambda x: int(x.split('.')[1]))].shape[
+            0],
+        **nn_cfg["NeuralNet"]
+    ).to(device)
+
+    # Set the weights
+    NN.load_state_dict(weights)
+    NN.eval()
+
+    return NN, nn_cfg
+
+def generate_predictions(*,
+                         NN: NeuralNet = None,
+                         dir: str = None,
                          edge_indices: torch.Tensor,
                          input_data: torch.Tensor,
                          S_0: torch.Tensor,
-                         show_pbar: bool = True,
-                         device: str = 'cpu',
-                         transformation_parameters: dict,
-                         scaling_factor: Union[torch.Tensor, float] = 1000.,
-                         death_rate: torch.Tensor,
                          total_births: torch.Tensor,
+                         death_rate: torch.Tensor,
+                         transformation_parameters: dict,
+                         device: str = 'cpu',
+                         show_pbar: bool = True,
+                         scaling_factor: Union[torch.Tensor, float] = 1000.,
                          apply_tanh_to_latent_space: bool = False,
+                         generate_full_T: bool = True,
                          **__
                          ) -> dict:
-    """Generates predictions using a neural network
+    """Generates predictions using a neural network. The neural network can be passed directly or loaded from a
+    directory.
 
+    :param NN: NeuralNetwork to use. If None, a directory containing a network to load must be passed
+    :param dir: path from which to load the neural network, if none is passed
     :param edge_indices: list of edge indices
     :param input_data: torch.Tensor of input data
     :param S_0: initial stocks
@@ -295,9 +329,19 @@ def generate_predictions(NN: NeuralNet, *,
     :param transformation_parameters: dictionary of Yeo-Johnson transformation values
     :param device: training device
     :param show_pbar: show the progress bar during evaluation
+    :param scaling_factor: scale to use for the neural network output
+    :param apply_tanh_to_latent_space: whether to apply the tanh function to the latent space output of an RNN
+        (for backwards compatibility purposes only)
+    :param generate_full_T: whether to generate the full flow table. If False, the compressed version is returned.
     :param __: other parameters (ignored)
     :return: dictionary containing the predictions
     """
+
+    # Load the neural network from the directory, if provided
+    if NN is None:
+        if dir is None:
+            raise ValueError("Must supply one of 'NN', 'dir'!")
+        NN, _ = get_NN(dir, device=device)
 
     # Edge indices
     idx_i, idx_j, idx_k = edge_indices
@@ -307,10 +351,11 @@ def generate_predictions(NN: NeuralNet, *,
 
     Y = input_data.shape[0]
     N = S_0.shape[0]
-    T_pred = torch.zeros((Y, N, N, N), device=device)
+    T_pred = torch.zeros((Y, edge_indices.shape[-1]), device=device)
     stock_predictions = [S_0]
+    flow_predictions = torch.zeros(Y, N, N, device=device)  # total flow[j,k]
 
-    for y in tqdm.trange(Y) if show_pbar else range(Y):
+    for y in tqdm.tqdm(range(Y), leave=False) if show_pbar else range(Y):
 
         # Make a prediction and fill the flow table. Recurrent architectures include the hidden state as an input, which is recursively updated.
         _input_data = torch.cat([
@@ -323,6 +368,9 @@ def generate_predictions(NN: NeuralNet, *,
             ).unsqueeze(1)], dim=1
         )
 
+        # Initialize aggregation tensors
+        net_stock_flow = torch.zeros(N, N, device=device)  # inflow - outflow for stock[i,k]
+
         # Append latent state to neural network input
         if NN.output_dim > 1:
             _input_data = torch.cat([_input_data, h_t], dim=1)
@@ -334,19 +382,32 @@ def generate_predictions(NN: NeuralNet, *,
         else:
             with torch.no_grad():
                 log_flow = NN(_input_data).flatten()
-        T_pred[y, idx_i, idx_j, idx_k] = scaling_factor * torch.exp(log_flow)
+        T_pred[y, :] = scaling_factor * torch.exp(log_flow)
+
+        net_stock_flow.index_put_((idx_i, idx_k), T_pred[y], accumulate=True)  # inflow
+        net_stock_flow.index_put_((idx_i, idx_j), -T_pred[y], accumulate=True)  # outflow
+        flow_predictions[y].index_put_((idx_j, idx_k), T_pred[y], accumulate=True)
 
         # Update the stock predictions
         stock_predictions.append(torch.maximum(
             torch.tensor(0.0),
-            (1 - death_rate[y]).reshape(1, N) * stock_predictions[-1] + torch.diag(total_births[y]) + T_pred[y].sum(
-                dim=1) - T_pred[y].sum(dim=2))
+            (1 - death_rate[y]).reshape(1, N) * stock_predictions[-1] + torch.diag(total_births[y]) + net_stock_flow)
         )
 
     # Combine predictions and return a dictionary
     stock_predictions = torch.stack(stock_predictions)
-    flow_predictions = T_pred.sum(dim=1)
     net_migration_predictions = flow_predictions.sum(dim=1) - flow_predictions.sum(dim=2)
+
+    # Generate the full flow tensor if required
+    if generate_full_T:
+        n = idx_i.shape[0]
+        _T_pred = torch.zeros(Y, N, N, N, device=T_pred.device, dtype=T_pred.dtype)
+        _T_pred[torch.arange(Y, device=T_pred.device)[:, None].expand(Y, n),
+                idx_i[None, :].expand(Y, n),
+                idx_j[None, :].expand(Y, n),
+                idx_k[None, :].expand(Y, n)
+        ] = T_pred
+        T_pred = _T_pred
 
     return dict(T_pred=T_pred,
                 S_pred=stock_predictions,
@@ -354,65 +415,8 @@ def generate_predictions(NN: NeuralNet, *,
                 F_pred=flow_predictions,
                 NN=NN)
 
-
-def get_predictions(dir: str, *,
-                    edge_indices: torch.Tensor,
-                    input_data: torch.Tensor,
-                    S_0: torch.Tensor,
-                    total_births: torch.Tensor,
-                    death_rate: torch.Tensor,
-                    transformation_parameters: dict,
-                    device: str = 'cpu',
-                    show_pbar: bool = True,
-                    apply_tanh_to_latent_space: bool = False,
-                    **__
-                    ) -> dict:
-    """ Loads a neural network and uses it to generate predictions.
-
-    :param dir: directory containing the trained neural network
-    :param edge_indices: list of edge indices
-    :param input_data: torch.Tensor of input data
-    :param S_0: initial stocks
-    :param total_births: total number of births in each year, by country
-    :param death_rate: death rate for each country
-    :param transformation_parameters: dictionary of Yeo-Johnson transformation values
-    :param device: training device
-    :param show_pbar: show the progress bar during evaluation
-    :param __: other parameters (ignored)
-    :return: dictionary containing the predictions
-    """
-    with open(f"{dir}/cfg.yaml", "r") as file:
-        nn_cfg = yaml.load(file)
-
-    # Load the neural network weights
-    weights = torch.load(f"{dir}/model_trained.pt", weights_only=True, map_location=torch.device(device))
-
-    # Set up the neural network
-    NN = NeuralNet(
-        input_size=weights['layers.0.weight'].shape[1],
-        output_size=weights[max([s for s in list(weights.keys()) if s.endswith('.weight')], key=lambda x: int(x.split('.')[1]))].shape[0],
-        **nn_cfg["NeuralNet"]
-    ).to(device)
-
-    # Load the weights
-    NN.load_state_dict(weights)
-    NN.eval()
-
-    return generate_predictions(NN,
-                                input_data=input_data,
-                                edge_indices=edge_indices,
-                                S_0=S_0,
-                                total_births=total_births,
-                                death_rate=death_rate,
-                                transformation_parameters=transformation_parameters,
-                                device=device,
-                                show_pbar=show_pbar,
-                                scaling_factor=nn_cfg['Data_loading']['data_rescale'],
-                                apply_tanh_to_latent_space=apply_tanh_to_latent_space)
-
-
 def convert_tensor_predictions_to_xarray(*,
-                                         T_pred: torch.Tensor,
+                                         T_pred: torch.Tensor = None,
                                          S_pred: torch.Tensor,
                                          mu_pred: torch.Tensor,
                                          F_pred: torch.Tensor,
@@ -422,7 +426,7 @@ def convert_tensor_predictions_to_xarray(*,
                                          ) -> dict:
     """ Converts torch.Tensors into xarray items for easier indexing and plotting.
 
-    :param T_pred: torch.Tensor of total flow predictions, of shape (Y, N, N, N)
+    :param T_pred: torch.Tensor of total flow predictions, of shape (Y, N, N, N) (optional)
     :param S_pred: torch.Tensor of migrant stocks, of shape (Y, N, N)
     :param mu_pred: torch.Tensor of net migration, of shape (Y, N)
     :param F_pred: torch.Tensor of flows, of shape (Y, N, N)
@@ -433,16 +437,11 @@ def convert_tensor_predictions_to_xarray(*,
     """
 
     if years is None:
-        years = np.arange(T_pred.shape[0])
+        years = np.arange(F_pred.shape[0])
     if countries is None:
-        countries = np.arange(T_pred.shape[1])
+        countries = np.arange(F_pred.shape[1])
 
-    return dict(T_pred=xr.DataArray(
-        data=T_pred.cpu(),
-        dims=["Year", "Birth ISO", "Origin ISO", "Destination ISO"],
-        coords={"Year": years, "Birth ISO": countries, "Origin ISO": countries, "Destination ISO": countries},
-        name="Flow table"
-    ), S_pred=xr.DataArray(
+    res = dict(S_pred=xr.DataArray(
         data=S_pred.cpu(),
         dims=["Year", "Origin ISO", "Destination ISO"],
         coords={"Year": np.append(years, years[-1] + 1), "Origin ISO": countries, "Destination ISO": countries},
@@ -457,64 +456,20 @@ def convert_tensor_predictions_to_xarray(*,
         dims=["Year", "Country ISO"],
         coords={"Year": years, "Country ISO": countries},
         name="Net migration"
-    )
-    )
+    ))
 
+    # Add the full flow table if possible; else
+    if T_pred is not None and T_pred.dim() == 4:
+        res['T_pred'] = xr.DataArray(
+            data=T_pred.cpu(),
+            dims=["Year", "Birth ISO", "Origin ISO", "Destination ISO"],
+            coords={"Year": years, "Birth ISO": countries, "Origin ISO": countries, "Destination ISO": countries},
+            name="Flow table"
+        )
+    elif T_pred is not None:
+        res['T_pred'] = T_pred
 
-def generate_samples(data: dict, predictions: dict, *, cfg, n_samples: int, transformation_parameters: dict,
-                     stock_std: Union[float, torch.Tensor] = 0.1, device: str = 'cpu', show_pbar: bool = False) -> xr.Dataset:
-    """ Generate samples
-
-    :param data: dictionary containing the training data
-    :param predictions: dictionary containing the neural network
-    :param cfg: configuration used to point to the covariates
-    :param n_samples: number of samples to draw
-    :param transformation_parameters: transformation parameters containing the standard deviation for each continuous
-        covariate
-    :param stock_std: standard deviation to use to sample the stocks
-    :param device: device to use
-    :param show_pbar: whether to show the progress bar during sampling
-    :return: xr.Dataset of sample mean and sums of squares
-    """
-
-    # Prepare a dictionary for the samples
-    samples = dict(
-        (k.replace('pred', 'sample'), torch.zeros(predictions[k].shape).unsqueeze(0).to(device).float()) for k in
-        ['T_pred', 'F_pred', 'S_pred', 'mu_pred'])
-    for k, v in samples.items():
-        dim = [1] * v.dim()
-        dim[0] = 2
-        samples[k] = samples[k].repeat(dim)
-
-    # Get the original initial stock to sample
-    S_0 = data['S_0']
-
-    # Draw samples
-    for _ in tqdm.trange(n_samples) if show_pbar else range(n_samples):
-
-        data['input_data'] = build_input(cfg, data['edge_indices'], data['Y'], device=device,
-                                               transformation_params=transformation_parameters)
-
-        # Sample the initial stock
-        data['S_0'] = torch.maximum(torch.tensor(0.0), torch.normal(S_0, stock_std * S_0))
-
-        # Generate predictions
-        sample_predictions = generate_predictions(predictions['NN'],
-                                                  scaling_factor=cfg['Data_loading']['data_rescale'],
-                                                  device=device, show_pbar=False, **data)
-
-        for k in samples.keys():
-            samples[k][0, :] += 1 / n_samples * sample_predictions[k.replace('sample', 'pred')]
-            samples[k][1, :] += 1 / n_samples * sample_predictions[k.replace('sample', 'pred')] ** 2
-
-    # Convert to an xarray Dataset
-    for key in samples.keys():
-        samples[key] = xr.Dataset({
-            'mean': (predictions[key.replace('sample', 'pred')].dims, samples[key][0].cpu()),
-            'std': (predictions[key.replace('sample', 'pred')].dims, torch.sqrt(samples[key][1] - samples[key][0]**2).cpu())
-        }, coords=predictions[key.replace('sample', 'pred')].coords)
-
-    return samples
+    return res
 
 
 def aggregate(arr: xr.DataArray, years, *, label: str = 'lower', dim_name: str = 'Year0'):
@@ -555,6 +510,53 @@ def aggregate_T(T, years):
     return _f.transpose('Method', 'Definition', 'Coverage', 'Year0', 'Origin ISO', 'Destination ISO')
 
 
+def expand_T(T_pred: torch.Tensor, data: dict, *, countries: np.ndarray = None, years: np.ndarray = None,
+             return_xarray: bool = True) -> Union[xr.Dataset, torch.Tensor]:
+    """ Expands the compressed full flow table T samples (containing means and standard deviations)
+    to the full (Y, N, N, N)-dimensional flow table.
+
+    :param T_pred: compressed flow table of mean and standard deviations
+    :param data: dictionary containing N, Y, and the edge indices
+    :param countries: array of country coordinates to use (optional)
+    :param years: array of year coordinates to use (optional)
+    :param return_xarray: return an xr.Dataset; if False, returns a stacked torch.Tensor
+    :return: xr.Dataset or torch.Tensor of mean and std T values
+    """
+
+    # Shapes of the dataset
+    Y, N = data['Y'], data['N']
+    idx_i, idx_j, idx_k = data['edge_indices']
+    n = idx_i.shape[0]
+
+    # Expand compressed flow table, containing mean and standard deviations
+    T_full = torch.zeros(2, Y, N, N, N)
+    T_full[0, torch.arange(Y)[:, None].expand(Y, n),
+                    idx_i[None, :].expand(Y, n),
+                    idx_j[None, :].expand(Y, n),
+                    idx_k[None, :].expand(Y, n)] = T_pred[0]
+    T_full[1, torch.arange(Y)[:, None].expand(Y, n),
+                    idx_i[None, :].expand(Y, n),
+                    idx_j[None, :].expand(Y, n),
+                    idx_k[None, :].expand(Y, n)] = T_pred[1]
+
+    if return_xarray:
+        if years is None:
+            years = np.arange(Y)
+        if countries is None:
+            countries = np.arange(N)
+        return xr.Dataset(dict(
+            mean=xr.DataArray(
+                    data=T_full[0].cpu(),
+                    dims=["Year", "Birth ISO", "Origin ISO", "Destination ISO"],
+                    coords={"Year": years, "Birth ISO": countries, "Origin ISO": countries, "Destination ISO": countries}),
+            std=xr.DataArray(
+                    data=T_full[1].cpu(),
+                    dims=["Year", "Birth ISO", "Origin ISO", "Destination ISO"],
+                    coords={"Year": years, "Birth ISO": countries, "Origin ISO": countries, "Destination ISO": countries}))
+        )
+    else:
+        return T_full
+
 def get_stock_offsets(*, stock_predictions: xr.DataArray, stock_data: xr.DataArray, weights: xr.DataArray,
                       gamma: xr.DataArray) -> xr.DataArray:
     """ Calculates an offset value for each edge (origin, destination), such that the L2-error
@@ -575,7 +577,7 @@ def get_stock_offsets(*, stock_predictions: xr.DataArray, stock_data: xr.DataArr
     offset /= (weights * gamma ** 2).sum('Year')
     offset = offset.fillna(0)
 
-    # Iteratively adjust unitl no more stocks are below 0
+    # Iteratively adjust until no more stocks are below 0
     negative_stocks = (stock_predictions + gamma * offset).where(lambda x: x < 0, 0)
     while negative_stocks.sum() != 0:
         offset += xr.where((stock_predictions + gamma * offset) == negative_stocks.min('Year'),
@@ -584,9 +586,13 @@ def get_stock_offsets(*, stock_predictions: xr.DataArray, stock_data: xr.DataArr
 
     offset = gamma * offset
 
-    return offset
+    return offset.transpose(*list(stock_data.dims))
 
-def get_elasticities(data: dict, predictions: dict, cfg: dict, *, n_edges: int = 20,
+def get_elasticities(data: dict,
+                     predictions: dict,
+                     cfg: dict,
+                     *,
+                     n_edges: int = 20,
                      n_years: int = 5, device: str) -> tuple[torch.Tensor, list]:
     """Calculates a matrix of elasticities over a batch. A random number of edges and years are selected on which to calculate the elasticities. This is to save memory and also speed up the computation. The batch_size is n_edges * n_years
 
@@ -686,12 +692,25 @@ def get_elasticities(data: dict, predictions: dict, cfg: dict, *, n_edges: int =
     return (grads * YJ_derivatives * unscaled_input)[:, covariate_indices], covariate_names
 
 
-def generate_ensemble_predictions(dirs: list, data: dict, *, device: str = 'cpu', show_pbar: bool = True,
-                                  stock_data: xr.Dataset, gamma: xr.DataArray,
-                                  n_samples: int = 0) -> dict:
+def get_samples(*,
+                dir: Union[str, list] = None,
+                NN: NeuralNet = None,
+                data: dict,
+                device: str = 'cpu',
+                cfg: dict = None,
+                input_transformation: dict = None,
+                show_pbar: bool = True,
+                stock_data: xr.Dataset,
+                stock_std: float = None,
+                gamma: xr.DataArray,
+                generate_full_T: bool = True,
+                apply_tanh_to_latent_space: bool = False,
+                n_samples: int = 0
+                ) -> tuple[dict, Any]:
 
     """ Generate ensemble predictions from a family of trained networks.
-    Mean estimates and uncertainties are calculated from the ensemble.
+    Mean estimates and uncertainties are calculated from the ensemble. This can optionally be done in a memory-efficient
+    way, avoiding generating of the full flow table T and instead returning the neural network statistics
 
     :param dirs: list of directories from which to source the estimates
     :param data: data dictionary containing the information needed to run the neural network
@@ -700,64 +719,120 @@ def generate_ensemble_predictions(dirs: list, data: dict, *, device: str = 'cpu'
     :param stock_data: xr.Dataset containing the stock data and weights
     :param gamma: cumulative death rates used to calculate the stock offsets
     :param n_samples: number of samples to draw for the stock data
-    :return: dictionary of estimates
+    :param generate_full_T: avoid generating the full flow table. If False, the mean and std of the neural network
+        estimates are returned alongside the dictionary of estimates
+    :return: dictionary of estimates and (optionally) the full flow table statistics
     """
+    Y, N = data['Y'], data['N']
+    n = data['edge_indices'].shape[1]
     samples = dict(
-        T_pred=torch.zeros(3, data['Y'], data['N'], data['N'], data['N']),
-        F_pred=torch.zeros(3, data['Y'], data['N'], data['N']),
-        S_pred=torch.zeros(3, data['Y'] + 1, data['N'], data['N']),
-        mu_pred=torch.zeros(3, data['Y'], data['N']),
+        T_pred=torch.zeros(3, Y, n, device=device),
+        F_pred=torch.zeros(3, Y, N, N, device=device),
+        S_pred=torch.zeros(3, Y + 1, N, N, device=device),
+        mu_pred=torch.zeros(3, Y, N, device=device),
     )
 
+    # Standard deviation on the stocks: taken from the stock dataset or through an explicit standard deviation level,
+    # if provided
     S_0 = data['S_0']
-    S_std = torch.from_numpy(stock_data['Error'].isel({"Year": 0}).fillna(0).data).float().to(device)
+    if stock_std is None:
+        stock_std = torch.from_numpy(stock_data['Error'].isel({"Year": 0}).fillna(0).data).float().to(device)
+    else:
+        stock_std = stock_std * S_0
+    input_0 = data['input_data']
 
-    for dir in tqdm.tqdm(dirs) if show_pbar else dirs:
+    # Number of samples seen: needed for Welford's algorithm
+    count = 0
 
-        for i in range(n_samples + 1):
+    if dir is not None and isinstance(dir, list):
+        outer = dir
+    elif dir is not None and isinstance(dir, str):
+        outer = [dir]
+    elif NN is not None:
+        outer = [NN]
+    else:
+        raise ValueError("Missing either dir or NN!")
 
-            # Sample the initial stock
-            data['S_0'] = torch.maximum(torch.tensor(0.0), torch.normal(S_0, S_std if i > 0 else 0.0))
-            pred = get_predictions(
-                dir, device=device, show_pbar=False, **data
-            )
+    with tqdm.tqdm(desc='Sampling', total=len(outer) * (n_samples+1), disable=not show_pbar) as pbar:
+        for item in outer:
+            for i in range(n_samples+1):
 
-            # Add the offset to the stock sample
-            # TODO: can still cause negative std for small number of samples?
-            pred['S_pred'] += torch.from_numpy(get_stock_offsets(
-                stock_predictions=xr.DataArray(
-                    pred['S_pred'].cpu(), dims=['Year', 'Origin ISO', 'Destination ISO'],
-                    coords=dict((key, gamma.coords['Destination ISO'].data if key != 'Year' else gamma.coords['Year'].data)
-                                for key in stock_data.dims)).sel({"Year": stock_data.coords['Year']}),
-                stock_data=stock_data['Start of year estimate'],
-                weights=stock_data['Weight'],
-                gamma=gamma
-            ).data).float().to(device)
+                # Sample the initial stock and input data. The first sample (i=0) is always the central estimate.
+                if i > 0:
+                    data['S_0'] = torch.maximum(torch.tensor(0.0), torch.normal(S_0, stock_std))
+                    if cfg is not None and input_transformation is not None:
+                        data['input_data'] = build_input(cfg,
+                                                         data['edge_indices'],
+                                                         data['Y'],
+                                                         device=device,
+                                                         transformation_params=input_transformation)
+                else:
+                    data['S_0'] = S_0
+                    data['input_data'] = input_0
 
-            # Calculate the mean only from the central estimate
-            for key in samples:
-                if i ==0:
-                    samples[key][0] += pred[key].cpu() / len(dirs)
-                samples[key][1] += pred[key].cpu()**2 / (len(dirs) * (n_samples + 1))
-                samples[key][2] += pred[key].cpu() / (len(dirs) * (n_samples + 1))
+                # Generate a prediction using the sample as input
+                pred = generate_predictions(NN=item if NN is not None else None,
+                                            dir=item if dir is not None else None,
+                                            device=device, show_pbar=False,
+                                            generate_full_T = False,
+                                            apply_tanh_to_latent_space=apply_tanh_to_latent_space,
+                                            **data
+                )
+
+                # Add the offset to the stock sample
+                pred['S_pred'] += torch.from_numpy(get_stock_offsets(
+                    stock_predictions=xr.DataArray(
+                        pred['S_pred'].cpu(), dims=['Year', 'Origin ISO', 'Destination ISO'],
+                        coords=dict((key, gamma.coords['Destination ISO'].data if key != 'Year' else gamma.coords['Year'].data)
+                                    for key in stock_data.dims)),
+                    stock_data=stock_data['Start of year estimate'],
+                    weights=stock_data['Weight'],
+                    gamma=gamma
+                ).data).float().to(device)
+
+                # Calculate the mean only from the central estimate
+                # Calculate the variance using Welford's algorithm
+                for key in samples:
+                    x = pred[key]
+                    if i == 0:
+                        samples[key][0] += x / len(outer)
+                    delta = x - samples[key][1]
+                    samples[key][1] += delta / (count + 1)
+                    samples[key][2] += delta * (x - samples[key][1])
+                count += 1
+                pbar.update(1)
+
+    # Calculate standard deviation
     for key in samples:
-        samples[key][1] = samples[key][1] - samples[key][2]**2 #torch.sqrt(samples[key][1] - samples[key][0]**2)
+        samples[key][2] = torch.sqrt(samples[key][2] / count)
+        samples[key] = samples[key][[0, 2]]
 
+    # Generate full flow table
+    if generate_full_T:
+        samples['T_pred'] = expand_T(samples['T_pred'], data, return_xarray=False)
+
+    _keys = list(samples.keys())
+    if not generate_full_T:
+        _keys.remove('T_pred')
     means = convert_tensor_predictions_to_xarray(
-        **dict((k, samples[k][0]) for k in samples.keys()), years=gamma.coords['Year'].data[:-1],
+        **dict((k, samples[k][0].cpu()) for k in _keys), years=gamma.coords['Year'].data[:-1],
         countries=gamma.coords['Destination ISO'].data
     )
     std = convert_tensor_predictions_to_xarray(
-        **dict((k, samples[k][1]) for k in samples.keys()), years=gamma.coords['Year'].data[:-1],
+        **dict((k, samples[k][1].cpu()) for k in _keys), years=gamma.coords['Year'].data[:-1],
         countries=gamma.coords['Destination ISO'].data
     )
     ensemble_predictions = dict(
-        (k, xr.Dataset(dict(mean=means[k], std=std[k]))) for k in samples.keys()
+        (k, xr.Dataset(dict(mean=means[k], std=std[k]))) for k in _keys
     )
 
     # Add stock offset again
     ensemble_predictions['S_pred']['mean'] += get_stock_offsets(
-        stock_predictions=ensemble_predictions['S_pred']['mean'].sel({"Year": stock_data.coords['Year'].data}),
-        stock_data=stock_data['Start of year estimate'], weights=stock_data['Weight'], gamma=gamma)
+        stock_predictions=ensemble_predictions['S_pred']['mean'],
+        stock_data=stock_data['Start of year estimate'],
+        weights=stock_data['Weight'], gamma=gamma)
 
-    return ensemble_predictions
+    if not generate_full_T:
+        return ensemble_predictions, samples['T_pred'].cpu()
+    else:
+        return ensemble_predictions, None

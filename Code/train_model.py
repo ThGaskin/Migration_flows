@@ -205,9 +205,8 @@ TrainingData = build_input(
 with open(os.path.expanduser(f"{BASE_PATH}/{data_path}/transformation_parameters.pickle"), "rb") as file:
     StockTransfParams = pickle.load(file)['Stock']
 
-# Standard deviation of the total population and the stock, used to scale the additional errors
+# Standard deviation of the total population, used to scale the regulariser
 inv_pop_std = 1 / Population.flatten().std()
-# inv_stock_std = 1 / torch.masked_select(Stock, StockMask).std()
 
 # Number of countries
 N = NetMigration.shape[1]
@@ -401,6 +400,23 @@ else:
     LossDict['epoch'] = []
     LossDict['test'] = {"flow": []}
 
+    # Save the initialised network
+    torch.save(NN.state_dict(), f"{save_to_path}/model_trained.pt")
+    torch.save(NN.optimizer.state_dict(), f"{save_to_path}/optim.pt")
+    with open(f"{save_to_path}/loss_dict.pickle", "wb") as file:
+        pickle.dump(
+            dict(
+                (
+                    k,
+                    dict(
+                        (kk, np.array(vv).flatten().tolist())
+                        for kk, vv in LossDict[k].items()
+                    ),
+                ) if k != 'epoch' else (k, v)
+                for k, v in LossDict.items()
+            ),
+            file,
+        )
 # ----------------------------------------------------------------------------------------------------------------------
 # Training settings
 # ----------------------------------------------------------------------------------------------------------------------
@@ -496,7 +512,7 @@ def batch(batch_idx, batch_stock_init, epoch_loss_dict, h_t=None):
                                 h_t[undetached]],
                                dim=1))
             T_values = Scale * torch.exp(res[:, 0])
-            h_t[undetached, :] = res[:, 1:].tanh()
+            h_t[undetached, :] = res[:, 1:]
 
             # Accumulate into aggregation tensors
             net_stock_flow.index_put_((idx_i, idx_k), T_values, accumulate=True)  # inflow
@@ -512,7 +528,7 @@ def batch(batch_idx, batch_stock_init, epoch_loss_dict, h_t=None):
                                     h_t[detached]],
                                    dim=1))
                 T_values = Scale * torch.exp(res[:, 0])
-                h_t[detached, :] = res[:, 1:].tanh()
+                h_t[detached, :] = res[:, 1:]
 
                 # Accumulate into aggregation tensors
                 net_stock_flow.index_put_((idx_i, idx_k), T_values, accumulate=True)
@@ -558,15 +574,14 @@ def batch(batch_idx, batch_stock_init, epoch_loss_dict, h_t=None):
         # Predict the net migration
         batch_net_migration_predictions.append(flow.sum(dim=0) - flow.sum(dim=1))
 
-        # The total outflow also cannot exceed the total population. This can be used as a regulariser, but is
-        # usually not necessary
+        # The total outflow cannot exceed the total population. This is used as a regulariser.
         outflow_error_population = torch.relu(
             flow.sum(dim=1) - Population[t]
         ).mean()
 
-        # Add to loss. The components are each scaled with the std of the stock and population to balance
-        # their contribution to the loss with the stock and net migration errors. Without this balancing they will
-        # dominate the loss and decrease training performance
+        # Add to loss. The regulariser is scaled with the std of the total population to balance
+        # its contribution to the loss. Without this balancing the regulariser will
+        # dominate the loss and decrease training performance.
         total_additional_err = cfg["Training"]["weight_factors"]["regulariser"] * (
                 inv_pop_std * outflow_error_population
         )
@@ -646,7 +661,6 @@ def batch(batch_idx, batch_stock_init, epoch_loss_dict, h_t=None):
                 ).detach()
             )
         ]
-
     return batch_loss, stock_prediction, predictions['flow'].detach(), epoch_loss_dict, h_t
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -722,10 +736,7 @@ def epoch(epoch_init_stock) -> dict:
         batch_loss, batch_stock_prediction, batch_flow_prediction, epoch_loss_dict, h_t = batch(
             batch_idx,
             epoch_stock_predictions[-1],
-            dict(
-                (k, {"net_migration": [], "stock": [], "flow": [], "outflow": []})
-                for k in ["prediction", "loss"]
-            ),
+            epoch_loss_dict,
             h_t
         )
 
