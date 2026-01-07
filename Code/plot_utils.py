@@ -202,7 +202,7 @@ def plot_eval_metrics(stats, fig, axs, *, cm: ColorManager, mark_max: bool = Tru
         axs[idx].set_xticks(np.arange(len(s.coords['Metric'])), s.coords['Metric'].data, rotation=45, ha='right')
 
     axs[0].set_yticks(np.arange(len(stats.coords['Method'].data)), [method_names.get(name, name) for name in stats.coords['Method'].data],
-                      linespacing=0.8)
+                      linespacing=1.1)
 
     # Add colourbar
     if add_cbar:
