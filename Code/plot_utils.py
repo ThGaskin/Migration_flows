@@ -11,6 +11,7 @@ import xarray as xr
 
 from dantro.plot.utils import ColorManager
 from matplotlib.colorbar import Colorbar
+from pathlib import Path
 from ruamel.yaml import YAML
 from typing import Union
 from shapely.geometry import Point
@@ -658,3 +659,15 @@ def errorband(ds: xr.Dataset, ax, *, x: str = 'Year', mean: str = 'mean', std: s
     l = ax.plot(x, mean, **kwargs)
 
     return (l[0], ebar)
+
+def save_figure(fig, img_dir: str = None, *, filename: str, subdir: str, pad_inches=0, **save_kwargs):
+    """
+    Save a matplotlib figure, creating the target directory if needed.
+    """
+    if img_dir is None:
+        return
+
+    out_dir = Path(img_dir) / subdir
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    fig.savefig(out_dir / filename, pad_inches=pad_inches, **save_kwargs)
