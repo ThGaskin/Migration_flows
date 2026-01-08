@@ -8,6 +8,7 @@ __pycache__
 
 Estimates
 Trained_networks
+Validation
 Data
 Images/*
 !Images/Github/
