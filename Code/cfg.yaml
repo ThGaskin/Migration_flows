@@ -1,5 +1,5 @@
 # Path configuration
-BASE_PATH:  ~/Projects/Migration/Migration_flows
+BASE_PATH: .
 OUT_DIR: 'Results'
 device: 'cpu' # Set to 'cuda' or 'mps' for GPU support
 path_note: ~ # Note added to out path
@@ -83,9 +83,9 @@ Data_loading:
 
 # Neural network settings
 NeuralNet:
-  num_layers: 7
+  num_layers: 3
   nodes_per_layer:
-    default: 60
+    default: 20
   activation_funcs:
     default: tanh
     layer_specific:
@@ -96,7 +96,7 @@ NeuralNet:
     default: [-1, 1]
   learning_rate: 0.002
   optimizer: Adam
-  latent_space_dim: 100
+  latent_space_dim: 10
 
 # Training settings
 Training:
@@ -110,7 +110,7 @@ Training:
   write_every: 10
 
   # Fraction of flow corridors to mask for testing
-  flow_test_frac: 0.0
+  flow_test_frac: 0.2
 
   # Gradient norm clipping
   clip_grad_norm: 1.0

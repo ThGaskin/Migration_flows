@@ -401,22 +401,23 @@ else:
     LossDict['test'] = {"flow": []}
 
     # Save the initialised network
-    torch.save(NN.state_dict(), f"{save_to_path}/model_trained.pt")
-    torch.save(NN.optimizer.state_dict(), f"{save_to_path}/optim.pt")
-    with open(f"{save_to_path}/loss_dict.pickle", "wb") as file:
-        pickle.dump(
-            dict(
-                (
-                    k,
-                    dict(
-                        (kk, np.array(vv).flatten().tolist())
-                        for kk, vv in LossDict[k].items()
-                    ),
-                ) if k != 'epoch' else (k, v)
-                for k, v in LossDict.items()
-            ),
-            file,
-        )
+    if not dry_run:
+        torch.save(NN.state_dict(), f"{save_to_path}/model_trained.pt")
+        torch.save(NN.optimizer.state_dict(), f"{save_to_path}/optim.pt")
+        with open(f"{save_to_path}/loss_dict.pickle", "wb") as file:
+            pickle.dump(
+                dict(
+                    (
+                        k,
+                        dict(
+                            (kk, np.array(vv).flatten().tolist())
+                            for kk, vv in LossDict[k].items()
+                        ),
+                    ) if k != 'epoch' else (k, v)
+                    for k, v in LossDict.items()
+                ),
+                file,
+            )
 # ----------------------------------------------------------------------------------------------------------------------
 # Training settings
 # ----------------------------------------------------------------------------------------------------------------------

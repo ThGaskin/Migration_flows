@@ -8,15 +8,16 @@ Deep learning-based estimates of global migration flows
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 
 This repository contains all code and data needed to train and evaluate a deep neural network 
-used to infer annual bilateral migration flows between all countries since 1990. If you have downloaded the datasets (in particular the `T.nc` flow table) from
-the [Zenodo repository](https://zenodo.org/records/15623215), you can directly evaluate the data from there. The `Evaluate.ipynb` notebook will guide you through the evaluation 
+used to infer annual bilateral migration flows between all countries since 1990. Once you have downloaded the datasets 
+from [huggingface](https://huggingface.co/datasets/ThGaskin/Migration_flows), you can use the `Evaluate.ipynb` notebook 
+to evaluate the data. The `Evaluate.ipynb` notebook will guide you through the evaluation 
 process step-by-step (see below) and allow you to recreate all the plots from the [publication](https://arxiv.org/abs/2506.22821).
 
 > [!NOTE]
 > This repository is work in progress and is still being updated. `git fetch & git pull` regularly for updates. If you encounter any problems, please [file an issue](https://github.com/ThGaskin/Migration_flows/issues/new).
 
 ## Obtaining the data
-All data is hosted at [Huggingface](https://huggingface.co/datasets/ThGaskin/Migration_flows/tree/main), including the 
+The first step is to obtain the data, which is hosted at [Huggingface](https://huggingface.co/datasets/ThGaskin/Migration_flows/tree/main), including the 
 input covariates, migration flow estimates, and trained neural networks. To pull this data and start evaluating the results, 
 follow these steps:
 
@@ -31,8 +32,10 @@ hf auth login
 ```
 Finally, download the data into this folder:
 ```commandline
-hf download ThGaskin/Migration_flows --repo-type=dataset
+hf download ThGaskin/Migration_flows --repo-type=dataset --local-dir . --exclude "README.md"
 ```
+Excluding the README.md is necessary to prevent the huggingface README overwriting this one. Don't worry: all
+the information from the huggingface dataset card is also provided here.
 
 > [!WARNING]
 > The full flow table `T.nc` is quite large — around 3GB! Make sure you have enough system memory to load it. 
@@ -92,8 +95,8 @@ The trained networks are located in the `Trained_networks` folder. Since we have
 - The model weights (`model_trained.pt`)
 - The optimizer state, in case you wish to continue training the model from its current state (`optim.pt`)
 - The config file used to run the model (`cfg.yaml`, see below)
-- The test edges masked during training and used as a test set. 
-  
+- A `pickle` file showing the training loss evolution 
+
 ## Train your own model
 The neural network weights are stored in the `Trained_networks` folder, alongside the configuration file used to create it.
 The training code is fully configuration-based, meaning you do not need to edit any Python code to configure the training procedure.
@@ -106,7 +109,7 @@ on a GPU. You can also use your own configuration file to run the model, passing
 ```python
 python -m Code.train_model path/to/cfg.yaml
 ```
-Below you will find a guide to all the settings provided in the `cfg.yaml` file; the settings shown are
+Below you will find a guide to all the settings provided in the `Code/cfg.yaml` file; the settings shown are
 the original settings used to train the network:
 
 ```yaml
@@ -114,14 +117,14 @@ the original settings used to train the network:
 BASE_PATH: "."
 
 # Training device to use
-device: 'mps'
+device: 'cuda'
 
 # Optional note that is added to the output path. Output data is stored in a time-stamped folder
 # in `Results/`, alongside the configuration file used to run the model. That way, everything you do is
 # stored and fully reproducible
 path_note: ~ 
 
-# Set this to true to run a model without saving any output -- useful for debugging so that 
+# Set this to True to run a model without saving any output -- useful for debugging so that 
 # your Results folder doesn't get cluttered
 dry_run: True 
 
@@ -184,9 +187,6 @@ Data_loading:
     - Refugees:
         path: 'input_covariates/Refugees'
         idx: [[i, j], [i, k]]
-    - Refugees_diff:
-        path: 'input_covariates/Refugees_diff'
-        idx: [[i, j], [i, k]]
     - Colonial_ties:
         path: 'input_covariates/Colonial_ties'
         idx: [[i, k], [j, k]]
@@ -217,14 +217,14 @@ NeuralNet:
 Training:
 
   # Number of epochs
-  N_epochs: 10
+  N_epochs: 100000
   
   # Due to memory constraints, we cannot optimise all 900,000 edges at the same time.
   # This setting draws a random sample of edge indices, which are optimised. A smaller value
   # is more memory efficient but means the model will take longer to converge.
   # Use the maximum size that will fit your GPU -- around 50,000 for a good GPU, depending also
   # on the size of the neural network and latent space dimension.
-  Random_sample_size: 1000
+  Random_sample_size: 100000
   
   # Perform a gradient descent step after every batch. A batch is a single five-year interval, 
   # corresponding to one stock data interval. For the period from 1990--2023, there are seven batches.
@@ -239,7 +239,7 @@ Training:
   # meaning that you can reproduce the test data later on. If you interrupt training and then 
   # pick up where you left off using the load_from_dir argument, the stored flow mask will be 
   # loaded, so that the test and training data is always the same for each model.
-  flow_test_frac: 0.2
+  flow_test_frac: 0.0
 
   # Gradient norm clipping. Set to False to turn off, or pass a gradient norm to clip to.
   clip_grad_norm: 1.0
@@ -265,16 +265,14 @@ Training:
     stock: 1
     flow: 1
     net_migration: 1
-    # An additional regularisation term to ensure outflows do not exceed the total population -- not necessary but can be turned on
-    # if required.
-    regulariser: 0 
+    regulariser: 1 # An additional regularisation term to ensure outflows do not exceed the total population
 
 ```
 Try it out by running
 ```python
-python -m Code.train_model Code/cfg.yaml
+python -m Code.train_model
 ```
-with the config settings above. You should see an output in the console that looks like this:
+You should see an output in the console that looks like this:
 ```commandline
 Loading data ... 
 Constructing training data ... 
@@ -297,4 +295,79 @@ Epoch     | Prediction                                                    | Loss
 10        |4812.8784      | 156478.2188   | 6540.7080     | 130781.0938   | 1.5352083     | 1.1609012     | 6.0475140     | 0.0000000     | 8749.0977 | 3.1074
 ```
 The `Prediction` and `Test err` columns simply list L1 errors on the various target datasets — this way you can compare the model performance for different loss functions. The `Loss` columns
-actually indicate the training loss – what the model is being trained on.
+actually indicate the training loss – what the model is being trained on. If the `flow_test_frac` key is set to 0, the 
+`Test err` column will simply display `nan`, because there are no flows selected as a test set.
+
+# Estimates
+This folder contains all the migration estimates. Data is available in both NetCDF (`.nc`) and CSV (`.csv`) formats. The NetCDF format is more compact and pre-indexed, making it suitable for large files. In Python, datasets can be opened as [`xarray.Dataset`](https://docs.xarray.dev/en/stable/generated/xarray.Dataset.html) objects, enabling coordinate-based data selection.
+
+Each dataset uses the following coordinate conventions:
+
+*   **Year**: 1990–2023
+*   **Birth ISO**: Country of birth (UN ISO3)
+*   **Origin ISO**: Country of origin (UN ISO3)
+*   **Destination ISO**: Destination country (UN ISO3)
+*   **Country ISO**: Used for net migration data (UN ISO3)
+
+The following data files are provided:
+
+*   **T.nc**: Full table of flows disaggregated by country of birth. Dimensions: Year, Birth ISO, Origin ISO, Destination ISO
+*   **flows.nc**: Total origin-destination flows (equivalent to `T` summed over Birth ISO). Dimensions: Year, Origin ISO, Destination ISO
+*   **net\_migration.nc**: Net migration data by country. Dimensions: Year, Country ISO
+*   **stocks.nc**: Stock estimates for each country pair. Dimensions: Year, Origin ISO (corresponding to Birth ISO), Destination ISO
+*   **test\_flows.nc**: Flow estimates on a randomly selected set of test edges, used for model validation
+
+Additionally, two CSV files are provided for convenience:
+
+*   **mig\_unilateral.csv**: Unilateral migration estimates per country, comprising:
+    *   `imm`: Total immigration flows
+    *   `emi`: Total emigration flows
+    *   `net`: Net migration
+    *   `imm_pop`: Total immigrant population (non-native-born)
+    *   `emi_pop`: Total emigrant population (living abroad)
+*   **mig\_bilateral.csv**: Bilateral flow data, comprising:
+    *   `mig_prev`: Total origin-destination flows
+    *   `mig_brth`: Total birth-destination flows, where `Origin ISO` reflects place of birth
+
+Each dataset includes a `mean` variable (mean estimate) and a `std` variable (standard deviation of the estimate).
+
+An ISO3 conversion table is also provided.
+
+# Data
+The `Data` contains all the data used to train, evaluate, and test the neural network.
+It is stored thematically in different folders, and most folders again contains its own `README` file to further
+explain the specific sources and imputation methods. All data is given *both* as a `.csv` file and a `.nc` file, and 
+follows the ISO3-naming convention outlined in the main README.
+
+## Training_data
+This folder contains all the tensors used to train the neural network. All data is given as a PyTorch
+tensor (`.pt`) and can be loaded using `torch.load()`. The folder contains targets, weights, masks, input covariates (scaled
+and unscaled), and the edge indices of each input. See the folder README for further details.
+
+## Net migration (`Net_migration`)
+This folder contains net migration data, sourced from national statistical offices, together with a list of sources 
+and the UN WPP net migration figures.
+
+## GDP indicators (`GDP_data`)
+This folder contains data on GDP/capita, GDP growth, nominal GDP, and other GDP-related indicators for all countries and
+years included in the training period.
+
+## Gravity covariates (`Gravity_datasets`)
+
+## Demographic indicators (`UN_WPP_data`)
+
+## Migrant stocks (`UN_stock_data`)
+
+## Refugee figures (`UNHCR_data`)
+Total number of refugees, asylum-seekers, and other people in need of international protection, taken from the 
+[UNHCR dataset](https://www.unhcr.org/refugee-statistics/download).
+
+## Conflict deaths (`UCDP_data`)
+This folder contains data on deaths in conflict provided by
+[UCDP Georeferenced Event](https://ucdp.uu.se/downloads/index.html#ged_global) dataset.
+NaN values are filled with 0.
+
+## Bilateral flows (`Flow_data`)
+
+# Trained networks
+Contains the ensemble of trained neural networks
