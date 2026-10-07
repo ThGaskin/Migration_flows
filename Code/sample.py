@@ -39,7 +39,7 @@ device = cfg["device"]
 data = utils.load_training_data(os.path.expanduser(os.path.join(BASE_PATH, cfg["Data_loading"]["data_path"])), cfg, device=cfg['device'])
 
 # Generate the ensemble
-dir_list = [os.path.expanduser(os.path.join(BASE_PATH, "Trained_networks_new", dir)) for dir in os.listdir(os.path.expanduser(os.path.join(BASE_PATH, "Trained_networks_new"))) if not dir.startswith('.')]
+dir_list = [os.path.expanduser(os.path.join(BASE_PATH, "Trained_networks", dir)) for dir in os.listdir(os.path.expanduser(os.path.join(BASE_PATH, "Trained_networks"))) if not dir.startswith('.')]
 ensemble_predictions, T_pred = utils.get_samples(
     dir=dir_list,
     data=data,
@@ -51,7 +51,7 @@ ensemble_predictions, T_pred = utils.get_samples(
 )
 
 for key, item in ensemble_predictions.items():
-    item.to_netcdf(f"Estimates/{key}_new.nc")
+    item.to_netcdf(f"Estimates/{key}.nc")
 if T_pred is not None:
     import torch
     torch.save(T_pred.cpu(), f"Estimates/T_pred.pt")

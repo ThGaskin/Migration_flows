@@ -62,7 +62,7 @@ if args.load_dir:
 if args.out_dir:
     cfg['OUT_DIR'] = args.out_dir
 if args.N_epochs:
-    cfg['Training']['N_epochs'] = args.N_epochs
+    cfg['Training']['N_epochs'] = int(args.N_epochs)
 
 # Set default device
 device = cfg["device"]

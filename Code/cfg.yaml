@@ -94,8 +94,9 @@ NeuralNet:
         args: [-12]
   biases:
     default: [-1, 1]
-  learning_rate: 0.002
   optimizer: Adam
+  optimizer_kwargs:
+    lr: 0.001
   latent_space_dim: 10
 
 # Training settings

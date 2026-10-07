@@ -11,7 +11,7 @@ This repository contains all code and data needed to train and evaluate a deep n
 used to infer annual bilateral migration flows between all countries since 1990. Once you have downloaded the datasets 
 from [huggingface](https://huggingface.co/datasets/ThGaskin/Migration_flows), you can use the `Evaluate.ipynb` notebook 
 to evaluate the data. The `Evaluate.ipynb` notebook will guide you through the evaluation 
-process step-by-step (see below) and allow you to recreate all the plots from the [publication](https://arxiv.org/abs/2506.22821).
+process step-by-step (see below) and allow you to recreate all the plots from the [publication](https://www.nature.com/articles/s41586-026-10611-7) and arXiv [preprint](https://arxiv.org/abs/2506.22821).
 
 > [!NOTE]
 > This repository is work in progress and is still being updated. `git fetch & git pull` regularly for updates. If you encounter any problems, please [file an issue](https://github.com/ThGaskin/Migration_flows/issues/new).
